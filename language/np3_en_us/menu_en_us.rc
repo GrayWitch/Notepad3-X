@@ -194,7 +194,7 @@ BEGIN
             MENUITEM "&Copy Selection or Current Line\tCtrl+C",     IDM_EDIT_COPY
             MENUITEM "Cop&y Selection Whole Line(s)\tCtrl+Shift+C", IDM_EDIT_COPYLINE
             MENUITEM SEPARATOR
-            MENUITEM "&Duplicate Line/Selection\tCtrl+D",   IDM_EDIT_DUPLINEORSELECTION
+            MENUITEM "&Duplicate Line/Selection\tShift+Alt+Down", IDM_EDIT_DUPLINEORSELECTION
             MENUITEM "&Transpose Lines\tAlt+D",             IDM_EDIT_LINETRANSPOSE
             MENUITEM "D&elete Line\tCtrl+Shift+D",          IDM_EDIT_DELETELINE
             MENUITEM SEPARATOR
@@ -238,7 +238,7 @@ BEGIN
                 MENUITEM SEPARATOR
                 MENUITEM "&With...\tAlt+Q",               IDM_EDIT_ENCLOSESELECTION
             END
-            MENUITEM "&Duplicate Selection/Line\tCtrl+D", IDM_EDIT_DUPLINEORSELECTION
+            MENUITEM "&Duplicate Selection/Line\tShift+Alt+Down", IDM_EDIT_DUPLINEORSELECTION
             MENUITEM SEPARATOR
             MENUITEM "&Pad With Blanks\tAlt+B",           IDM_EDIT_PADWITHSPACES
             MENUITEM "Strip &First Character\tAlt+Z",     IDM_EDIT_STRIP1STCHAR
@@ -318,7 +318,10 @@ BEGIN
             MENUITEM "Select To &Previous\tCtrl+Alt+Shift+F2",     IDM_EDIT_SELTOPREV
             MENUITEM SEPARATOR
             MENUITEM "Select &Word or Lines\tCtrl+Spc",            IDM_EDIT_SELECTWORD
-            MENUITEM "Multi-Select &All Matches\tCtrl+Shift+Spc",  IDM_EDIT_SELECTALLMATCHES
+            MENUITEM "Add Next &Occurrence\tCtrl+D",               IDM_EDIT_SELECTNEXTMATCH
+            MENUITEM "Multi-Select &All Matches\tCtrl+Shift+L",    IDM_EDIT_SELECTALLMATCHES
+            MENUITEM "Add Cursor &Above\tCtrl+Alt+Up",             IDM_EDIT_ADDCURSOR_ABOVE
+            MENUITEM "Add Cursor &Below\tCtrl+Alt+Down",           IDM_EDIT_ADDCURSOR_BELOW
             MENUITEM SEPARATOR
             MENUITEM "Open &Containing Folder of Selection",                IDM_EDIT_OPEN_CONTAINING_FOLDER_SEL
             MENUITEM "Open &File from Selection",                           IDM_EDIT_OPEN_FILE_FROM_SEL

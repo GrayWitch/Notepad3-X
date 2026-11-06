@@ -240,6 +240,7 @@ BEGIN
     "A",            IDM_VIEW_MARKOCCUR_ONOFF,         VIRTKEY, ALT, NOINVERT  /// NO Menu
     "A",            CMD_RECODEANSI,                   VIRTKEY, SHIFT, CONTROL, NOINVERT
     "A",            IDM_SET_ALTERNATE_WORD_SEPS,      VIRTKEY, CONTROL, ALT, NOINVERT
+    "A",            IDM_EDIT_STREAMCOMMENT,           VIRTKEY, SHIFT, ALT, NOINVERT
     "B",            IDM_EDIT_FINDMATCHINGBRACE,       VIRTKEY, CONTROL, NOINVERT
     "B",            IDM_EDIT_PADWITHSPACES,           VIRTKEY, ALT, NOINVERT  /// NO Menu
     "B",            IDM_EDIT_SELTOMATCHINGBRACE,      VIRTKEY, SHIFT, CONTROL, NOINVERT
@@ -248,7 +249,7 @@ BEGIN
     "C",            IDM_EDIT_COPYALL,                 VIRTKEY, ALT, NOINVERT  /// NO Menu
     "C",            IDM_EDIT_HEX2CHAR,                VIRTKEY, CONTROL, ALT, NOINVERT
     "C",            IDM_EDIT_COPYLINE,                VIRTKEY, SHIFT, CONTROL, NOINVERT
-    "D",            IDM_EDIT_DUPLINEORSELECTION,      VIRTKEY, CONTROL, NOINVERT
+    "D",            IDM_EDIT_SELECTNEXTMATCH,         VIRTKEY, CONTROL, NOINVERT
     "D",            IDM_EDIT_LINETRANSPOSE,           VIRTKEY, ALT, NOINVERT  /// NO Menu
     "D",            IDM_EDIT_DELETELINE,              VIRTKEY, SHIFT, CONTROL, NOINVERT
     "D",            IDM_EDIT_UNITEDUPLICATELINES,     VIRTKEY, CONTROL, ALT, NOINVERT
@@ -278,11 +279,11 @@ BEGIN
     "J",            IDM_EDIT_ALIGN,                   VIRTKEY, ALT, NOINVERT  /// NO Menu
     "K",            IDM_EDIT_SWAP,                    VIRTKEY, CONTROL, NOINVERT
     "K",            IDM_FILE_ADDTOFAV,                VIRTKEY, ALT, NOINVERT
-    "K",            CMD_COPYWINPOS,                   VIRTKEY, SHIFT, CONTROL, NOINVERT
+    "K",            IDM_EDIT_DELETELINE,              VIRTKEY, SHIFT, CONTROL, NOINVERT
     //"K",            IDM_VIEW_COLORDEFHOTSPOTS,        VIRTKEY, CONTROL, ALT, NOINVERT
     "L",            IDM_FILE_LAUNCH,                  VIRTKEY, CONTROL, NOINVERT
     "L",            IDM_FILE_OPENWITH,                VIRTKEY, ALT, NOINVERT
-    "L",            IDM_SET_REUSEWINDOW,              VIRTKEY, SHIFT, CONTROL, NOINVERT
+    "L",            IDM_EDIT_SELECTALLMATCHES,        VIRTKEY, SHIFT, CONTROL, NOINVERT
     "L",            IDM_VIEW_LONGLINEMARKER,          VIRTKEY, CONTROL, ALT, NOINVERT
     "M",            IDM_FILE_BROWSE,                  VIRTKEY, CONTROL, NOINVERT
     "M",            IDM_EDIT_MODIFYLINES,             VIRTKEY, ALT, NOINVERT  /// NO Menu
@@ -367,11 +368,13 @@ BEGIN
     VK_UP,          CMD_ARROW_UP,                     VIRTKEY, NOINVERT
     VK_UP,          IDM_EDIT_MOVELINEUP,              VIRTKEY, ALT, NOINVERT
     VK_UP,          CMD_SCROLLUP,                     VIRTKEY, CONTROL, NOINVERT
-    //VK_UP,          <free>,                           VIRTKEY, SHIFT, CONTROL, NOINVERT
+    VK_UP,          IDM_EDIT_DUPLINEORSELECTION,      VIRTKEY, SHIFT, ALT, NOINVERT
+    VK_UP,          IDM_EDIT_ADDCURSOR_ABOVE,         VIRTKEY, CONTROL, ALT, NOINVERT
     VK_DOWN,        CMD_ARROW_DOWN,                   VIRTKEY, NOINVERT
     VK_DOWN,        IDM_EDIT_MOVELINEDOWN,            VIRTKEY, ALT, NOINVERT
     VK_DOWN,        CMD_SCROLLDOWN,                   VIRTKEY, CONTROL, NOINVERT
-    //VK_DOWN,        <free>,                           VIRTKEY, SHIFT, CONTROL, NOINVERT
+    VK_DOWN,        IDM_EDIT_DUPLINEORSELECTION,      VIRTKEY, SHIFT, ALT, NOINVERT
+    VK_DOWN,        IDM_EDIT_ADDCURSOR_BELOW,         VIRTKEY, CONTROL, ALT, NOINVERT
     VK_ESCAPE,      CMD_ESCAPE,                       VIRTKEY, NOINVERT
     VK_ESCAPE,      CMD_SHIFTESC,                     VIRTKEY, SHIFT, NOINVERT
     VK_F1,          IDM_HELP_ONLINEDOCUMENTATION,     VIRTKEY, NOINVERT

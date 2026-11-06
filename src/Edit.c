@@ -6766,6 +6766,87 @@ static LRESULT CALLBACK EditBoxForPasteFixes(HWND hwnd, UINT uMsg, WPARAM wParam
         }
     } break;
 
+    case WM_KEYDOWN: {
+        HWND const hwndDlg = GetParent(hwnd);
+        if (wParam == VK_RETURN) {
+            bool const bShift = (GetKeyState(VK_SHIFT) < 0);
+            bool const bCtrl = (GetKeyState(VK_CONTROL) < 0);
+            bool const bAlt = (GetKeyState(VK_MENU) < 0);
+
+            if (bAlt && !bShift && !bCtrl) {
+                // VSCode Alt+Enter: Select all occurrences and close find dialog to edit
+                PostMessage(hwndDlg, WM_COMMAND, MAKEWPARAM(IDCANCEL, BN_CLICKED), 0);
+                PostMessage(Globals.hwndMain, WM_COMMAND, MAKEWPARAM(IDM_EDIT_SELECTALLMATCHES, 0), 0);
+                return 0;
+            }
+            if (bCtrl && bAlt) {
+                // VSCode Ctrl+Alt+Enter: Replace All
+                HWND const hwndReplAll = GetDlgItem(hwndDlg, IDC_REPLACEALL);
+                if (hwndReplAll && IsWindowEnabled(hwndReplAll)) {
+                    PostMessage(hwndDlg, WM_COMMAND, MAKEWPARAM(IDC_REPLACEALL, BN_CLICKED), (LPARAM)hwndReplAll);
+                    return 0;
+                }
+            }
+            if (bShift && !bCtrl && !bAlt) {
+                // VSCode Shift+Enter: Find Previous
+                HWND const hwndPrev = GetDlgItem(hwndDlg, IDC_FINDPREV);
+                if (hwndPrev && IsWindowEnabled(hwndPrev)) {
+                    PostMessage(hwndDlg, WM_COMMAND, MAKEWPARAM(IDC_FINDPREV, BN_CLICKED), (LPARAM)hwndPrev);
+                    return 0;
+                }
+            }
+            if (!bShift && !bCtrl && !bAlt) {
+                // VSCode Enter: Find Next
+                HWND const hwndNext = GetDlgItem(hwndDlg, IDOK);
+                if (hwndNext && IsWindowEnabled(hwndNext)) {
+                    PostMessage(hwndDlg, WM_COMMAND, MAKEWPARAM(IDOK, BN_CLICKED), (LPARAM)hwndNext);
+                    return 0;
+                }
+            }
+        } else if (wParam == VK_ESCAPE) {
+            // VSCode Escape: Close find widget and focus back to editor
+            PostMessage(hwndDlg, WM_COMMAND, MAKEWPARAM(IDCANCEL, BN_CLICKED), 0);
+            return 0;
+        }
+    } break;
+
+    case WM_SYSKEYDOWN: {
+        HWND const hwndDlg = GetParent(hwnd);
+        if (wParam == 'C' || wParam == 'c') {
+            // VSCode Alt+C: Toggle match case
+            HWND const hwndCase = GetDlgItem(hwndDlg, IDC_FINDCASE);
+            if (hwndCase && IsWindowEnabled(hwndCase)) {
+                BOOL const isChecked = (SendMessage(hwndCase, BM_GETCHECK, 0, 0) == BST_CHECKED);
+                SendMessage(hwndCase, BM_SETCHECK, isChecked ? BST_UNCHECKED : BST_CHECKED, 0);
+                PostMessage(hwndDlg, WM_COMMAND, MAKEWPARAM(IDC_FINDCASE, BN_CLICKED), (LPARAM)hwndCase);
+                return 0;
+            }
+        } else if (wParam == 'W' || wParam == 'w') {
+            // VSCode Alt+W: Toggle whole word
+            HWND const hwndWord = GetDlgItem(hwndDlg, IDC_FINDWORD);
+            if (hwndWord && IsWindowEnabled(hwndWord)) {
+                BOOL const isChecked = (SendMessage(hwndWord, BM_GETCHECK, 0, 0) == BST_CHECKED);
+                SendMessage(hwndWord, BM_SETCHECK, isChecked ? BST_UNCHECKED : BST_CHECKED, 0);
+                PostMessage(hwndDlg, WM_COMMAND, MAKEWPARAM(IDC_FINDWORD, BN_CLICKED), (LPARAM)hwndWord);
+                return 0;
+            }
+        } else if (wParam == 'R' || wParam == 'r') {
+            // VSCode Alt+R: Toggle regex
+            HWND const hwndRegex = GetDlgItem(hwndDlg, IDC_FINDREGEXP);
+            if (hwndRegex && IsWindowEnabled(hwndRegex)) {
+                BOOL const isChecked = (SendMessage(hwndRegex, BM_GETCHECK, 0, 0) == BST_CHECKED);
+                SendMessage(hwndRegex, BM_SETCHECK, isChecked ? BST_UNCHECKED : BST_CHECKED, 0);
+                PostMessage(hwndDlg, WM_COMMAND, MAKEWPARAM(IDC_FINDREGEXP, BN_CLICKED), (LPARAM)hwndRegex);
+                return 0;
+            }
+        } else if (wParam == VK_RETURN) {
+            // Alt+Enter
+            PostMessage(hwndDlg, WM_COMMAND, MAKEWPARAM(IDCANCEL, BN_CLICKED), 0);
+            PostMessage(Globals.hwndMain, WM_COMMAND, MAKEWPARAM(IDM_EDIT_SELECTALLMATCHES, 0), 0);
+            return 0;
+        }
+    } break;
+
     case WM_NCDESTROY:
         RemoveWindowSubclass(hwnd, EditBoxForPasteFixes, uIdSubclass);
         break;
@@ -7031,7 +7112,7 @@ static INT_PTR CALLBACK EditFindReplaceDlgProc(HWND hwnd, UINT umsg, WPARAM wPar
         }
         else {
             if (Settings.FindReplaceDlgPosX == CW_USEDEFAULT || Settings.FindReplaceDlgPosY == CW_USEDEFAULT) {
-                CenterDlgInParent(hwnd, false);
+                PositionDlgTopRight(hwnd);
             }
             else {
                 SetDlgPos(hwnd, Settings.FindReplaceDlgPosX, Settings.FindReplaceDlgPosY);
@@ -7146,6 +7227,7 @@ static INT_PTR CALLBACK EditFindReplaceDlgProc(HWND hwnd, UINT umsg, WPARAM wPar
 
         s_pEfrData = NULL;
         Globals.hwndDlgFindReplace = NULL;
+        SetFocus(Globals.hwndEdit);
     }
     return FALSE;
 
@@ -7687,7 +7769,7 @@ static INT_PTR CALLBACK EditFindReplaceDlgProc(HWND hwnd, UINT umsg, WPARAM wPar
             break;
 
         case IDACC_RESETPOS:
-            CenterDlgInParent(hwnd, false);
+            PositionDlgTopRight(hwnd);
             Settings.FindReplaceDlgPosX = Settings.FindReplaceDlgPosY = CW_USEDEFAULT;
             break;
 
@@ -8090,16 +8172,74 @@ void EditMarkAllOccurrences(HWND hwnd, bool bForceClear)
 //
 void EditSelectionMultiSelectAll()
 {
-    if (SciCall_GetSelText(NULL) > 0) {
-        SciCall_TargetWholeDocument();
-        SciCall_SetSearchFlags(GetMarkAllOccSearchFlags());
-        SciCall_MultipleSelectAddEach();
-        SciCall_SetMainSelection(0);
-        if (SciCall_GetSelectionNAnchor(0) > SciCall_GetSelectionNCaret(0)) {
-            SciCall_SwapMainAnchorCaret();
+    if (SciCall_IsSelectionEmpty()) {
+        DocPos const curPos = SciCall_GetCurrentPos();
+        DocPos const wordStart = SciCall_WordStartPosition(curPos, true);
+        DocPos const wordEnd = SciCall_WordEndPosition(curPos, true);
+        if (wordEnd > wordStart) {
+            SciCall_SetSelection(wordEnd, wordStart);
+        } else {
+            EditSelectWordAtPos(curPos, true);
         }
-        Sci_ScrollSelectionToView();
+        if (SciCall_IsSelectionEmpty()) {
+            return;
+        }
     }
+
+    DocPos const sStart = SciCall_GetSelectionNStart(0);
+    DocPos const sEnd = SciCall_GetSelectionNEnd(0);
+    DocPos const textLen = sEnd - sStart;
+    if (textLen <= 0) {
+        return;
+    }
+
+    char* const text = (char*)AllocMem(textLen + 1, HEAP_ZERO_MEMORY);
+    if (!text) {
+        return;
+    }
+
+    struct Sci_TextRangeFull tr;
+    tr.chrg.cpMin = (DocPosCR)sStart;
+    tr.chrg.cpMax = (DocPosCR)sEnd;
+    tr.lpstrText = text;
+    SciCall_GetTextRangeFull(&tr);
+
+    int searchFlags = SCFIND_MATCHCASE;
+    DocPos const wStart = SciCall_WordStartPosition(sStart, true);
+    DocPos const wEnd = SciCall_WordEndPosition(sStart, true);
+    if (wStart == sStart && wEnd == sEnd) {
+        searchFlags |= SCFIND_WHOLEWORD;
+    }
+    SciCall_SetSearchFlags(searchFlags);
+
+    DocPos const docLen = Sci_GetDocEndPosition();
+    DocPos rangeBegin = 0;
+    bool isFirst = true;
+
+    while (rangeBegin < docLen) {
+        SciCall_SetTargetRange(rangeBegin, docLen);
+        if (SciCall_SearchInTarget(textLen, text) < 0) {
+            break;
+        }
+
+        DocPos const matchStart = SciCall_GetTargetStart();
+        DocPos const matchEnd = SciCall_GetTargetEnd();
+        if (matchEnd <= matchStart) {
+            break;
+        }
+
+        if (isFirst) {
+            SciCall_SetSelection(matchEnd, matchStart);
+            isFirst = false;
+        } else {
+            SciCall_AddSelection(matchEnd, matchStart);
+        }
+
+        rangeBegin = matchEnd;
+    }
+
+    FreeMem(text);
+    Sci_ScrollSelectionToView();
 }
 
 
@@ -8126,6 +8266,322 @@ void EditSelectionMultiSelectAllEx(HWND hwnd, CLPCEDITFINDREPLACE edFndRpl)
         EndUndoTransAction();
     }
     ReleaseEFR(&efr);
+}
+
+
+//=============================================================================
+//
+//  EditSelectionMultiSelectNext()
+//  VSCode style Ctrl+D: select next occurrence of selected text and add to multi-selection.
+//  If selection is empty, select word at caret.
+//
+void EditSelectionMultiSelectNext()
+{
+    if (SciCall_IsSelectionEmpty()) {
+        DocPos const curPos = SciCall_GetCurrentPos();
+        DocPos const wordStart = SciCall_WordStartPosition(curPos, true);
+        DocPos const wordEnd = SciCall_WordEndPosition(curPos, true);
+        if (wordEnd > wordStart) {
+            SciCall_SetSelection(wordEnd, wordStart);
+        } else {
+            EditSelectWordAtPos(curPos, true);
+        }
+        Sci_ScrollSelectionToView();
+        SciCall_ChooseCaretX();
+        InvalidateRect(Globals.hwndEdit, NULL, FALSE);
+        UpdateWindow(Globals.hwndEdit);
+        return;
+    }
+
+    DocPosU const numSelections = SciCall_GetSelections();
+    if (numSelections == 0) {
+        return;
+    }
+
+    // Get the selection text strictly from the 0-th selection (NOT GetSelText which joins all selections)
+    DocPos const sStart = SciCall_GetSelectionNStart(0);
+    DocPos const sEnd = SciCall_GetSelectionNEnd(0);
+    DocPos const textLen = sEnd - sStart;
+    if (textLen <= 0) {
+        return;
+    }
+
+    char* const text = (char*)AllocMem(textLen + 1, HEAP_ZERO_MEMORY);
+    if (!text) {
+        return;
+    }
+
+    struct Sci_TextRangeFull tr;
+    tr.chrg.cpMin = (DocPosCR)sStart;
+    tr.chrg.cpMax = (DocPosCR)sEnd;
+    tr.lpstrText = text;
+    SciCall_GetTextRangeFull(&tr);
+
+    // Search flags: case sensitive
+    int const searchFlags = SCFIND_MATCHCASE;
+    SciCall_SetSearchFlags(searchFlags);
+
+    // Find the furthest end position of all current selections to search forward from
+    DocPos searchStart = 0;
+    for (DocPosU i = 0; i < numSelections; ++i) {
+        DocPos const endPos = SciCall_GetSelectionNEnd(i);
+        if (endPos > searchStart) {
+            searchStart = endPos;
+        }
+    }
+
+    DocPos const docLen = Sci_GetDocEndPosition();
+    DocPos foundStart = -1;
+    DocPos foundEnd = -1;
+
+    // Pass 0: from searchStart to docLen
+    // Pass 1: wrap around from 0 to searchStart
+    for (int pass = 0; pass < 2 && foundStart < 0; ++pass) {
+        DocPos rangeBegin = (pass == 0) ? searchStart : 0;
+        DocPos const rangeLimit = (pass == 0) ? docLen : searchStart;
+
+        while (rangeBegin < rangeLimit) {
+            SciCall_SetTargetRange(rangeBegin, rangeLimit);
+            DocPos const pos = SciCall_SearchInTarget(textLen, text);
+            if (pos < 0) {
+                break;
+            }
+
+            DocPos const matchStart = SciCall_GetTargetStart();
+            DocPos const matchEnd = SciCall_GetTargetEnd();
+            if (matchEnd <= matchStart) {
+                break;
+            }
+
+            // Check if this match [matchStart, matchEnd] overlaps with any existing selection
+            bool alreadySelected = false;
+            for (DocPosU i = 0; i < numSelections; ++i) {
+                DocPos const curS = SciCall_GetSelectionNStart(i);
+                DocPos const curE = SciCall_GetSelectionNEnd(i);
+                if ((matchStart >= curS && matchStart < curE) ||
+                    (matchEnd > curS && matchEnd <= curE) ||
+                    (matchStart <= curS && matchEnd >= curE)) {
+                    alreadySelected = true;
+                    break;
+                }
+            }
+
+            if (!alreadySelected) {
+                foundStart = matchStart;
+                foundEnd = matchEnd;
+                break;
+            }
+
+            rangeBegin = matchEnd;
+        }
+    }
+
+    FreeMem(text);
+
+    if (foundStart >= 0) {
+        SciCall_AddSelection(foundEnd, foundStart);
+        Sci_ScrollSelectionToView();
+        SciCall_ChooseCaretX();
+        InvalidateRect(Globals.hwndEdit, NULL, FALSE);
+        UpdateWindow(Globals.hwndEdit);
+    }
+}
+
+
+//=============================================================================
+//
+//  EditSelectionMultiSelectSkip()
+//  VSCode style Ctrl+K Ctrl+D: skip current match and select next occurrence.
+//
+void EditSelectionMultiSelectSkip()
+{
+    DocPosU const numSelections = SciCall_GetSelections();
+    if (numSelections == 0 || SciCall_IsSelectionEmpty()) {
+        return;
+    }
+
+    // Get text from the first selection
+    DocPos const sStart = SciCall_GetSelectionNStart(0);
+    DocPos const sEnd = SciCall_GetSelectionNEnd(0);
+    DocPos const textLen = sEnd - sStart;
+    if (textLen <= 0) {
+        return;
+    }
+
+    char* const text = (char*)AllocMem(textLen + 1, HEAP_ZERO_MEMORY);
+    if (!text) {
+        return;
+    }
+
+    struct Sci_TextRangeFull tr;
+    tr.chrg.cpMin = (DocPosCR)sStart;
+    tr.chrg.cpMax = (DocPosCR)sEnd;
+    tr.lpstrText = text;
+    SciCall_GetTextRangeFull(&tr);
+
+    int const searchFlags = SCFIND_MATCHCASE;
+    SciCall_SetSearchFlags(searchFlags);
+
+    DocPos dropEnd = 0;
+    if (numSelections == 1) {
+        dropEnd = sEnd;
+    } else {
+        DocPosU const mainSel = SciCall_GetMainSelection();
+        dropEnd = SciCall_GetSelectionNEnd(mainSel);
+        SciCall_DropSelectionN((int)mainSel);
+    }
+
+    DocPosU const curNumSelections = SciCall_GetSelections();
+    DocPos const docLen = Sci_GetDocEndPosition();
+    DocPos foundStart = -1;
+    DocPos foundEnd = -1;
+
+    for (int pass = 0; pass < 2 && foundStart < 0; ++pass) {
+        DocPos rangeBegin = (pass == 0) ? dropEnd : 0;
+        DocPos const rangeLimit = (pass == 0) ? docLen : dropEnd;
+
+        while (rangeBegin < rangeLimit) {
+            SciCall_SetTargetRange(rangeBegin, rangeLimit);
+            if (SciCall_SearchInTarget(textLen, text) < 0) {
+                break;
+            }
+
+            DocPos const matchStart = SciCall_GetTargetStart();
+            DocPos const matchEnd = SciCall_GetTargetEnd();
+            if (matchEnd <= matchStart) {
+                break;
+            }
+
+            bool alreadySelected = false;
+            for (DocPosU i = 0; i < curNumSelections; ++i) {
+                DocPos const curS = SciCall_GetSelectionNStart(i);
+                DocPos const curE = SciCall_GetSelectionNEnd(i);
+                if ((matchStart >= curS && matchStart < curE) ||
+                    (matchEnd > curS && matchEnd <= curE) ||
+                    (matchStart <= curS && matchEnd >= curE)) {
+                    alreadySelected = true;
+                    break;
+                }
+            }
+
+            if (!alreadySelected) {
+                foundStart = matchStart;
+                foundEnd = matchEnd;
+                break;
+            }
+
+            rangeBegin = matchEnd;
+        }
+    }
+
+    FreeMem(text);
+
+    if (foundStart >= 0) {
+        if (numSelections == 1) {
+            SciCall_SetSelection(foundEnd, foundStart);
+        } else {
+            SciCall_AddSelection(foundEnd, foundStart);
+        }
+        Sci_ScrollSelectionToView();
+        SciCall_ChooseCaretX();
+        InvalidateRect(Globals.hwndEdit, NULL, FALSE);
+        UpdateWindow(Globals.hwndEdit);
+    }
+}
+
+
+//=============================================================================
+//
+//  EditAddCursorAbove()
+//  VSCode style Ctrl+Alt+Up: Add cursor on the line above at same column.
+//
+void EditAddCursorAbove()
+{
+    DocPosU const numSelections = SciCall_GetSelections();
+    if (numSelections == 0) {
+        return;
+    }
+
+    DocPos topPos = SciCall_GetSelectionNStart(0);
+    DocLn minLine = SciCall_LineFromPosition(topPos);
+    DocPosU topSelIdx = 0;
+
+    for (DocPosU i = 1; i < numSelections; ++i) {
+        DocPos const pos = SciCall_GetSelectionNStart(i);
+        DocLn const line = SciCall_LineFromPosition(pos);
+        if (line < minLine) {
+            minLine = line;
+            topPos = pos;
+            topSelIdx = i;
+        }
+    }
+
+    if (minLine <= 0) {
+        return;
+    }
+
+    DocLn const targetLine = minLine - 1;
+    DocPos const caretPos = SciCall_GetSelectionNCaret(topSelIdx);
+    DocPos const anchorPos = SciCall_GetSelectionNAnchor(topSelIdx);
+    DocPos const caretCol = SciCall_GetColumn(caretPos);
+    DocPos const anchorCol = SciCall_GetColumn(anchorPos);
+
+    DocPos const newCaret = SciCall_FindColumn(targetLine, caretCol);
+    DocPos const newAnchor = (caretPos == anchorPos) ? newCaret : SciCall_FindColumn(targetLine, anchorCol);
+
+    SciCall_AddSelection(newCaret, newAnchor);
+    Sci_ScrollSelectionToView();
+    SciCall_ChooseCaretX();
+    InvalidateRect(Globals.hwndEdit, NULL, FALSE);
+    UpdateWindow(Globals.hwndEdit);
+}
+
+
+//=============================================================================
+//
+//  EditAddCursorBelow()
+//  VSCode style Ctrl+Alt+Down: Add cursor on the line below at same column.
+//
+void EditAddCursorBelow()
+{
+    DocPosU const numSelections = SciCall_GetSelections();
+    if (numSelections == 0) {
+        return;
+    }
+
+    DocPos bottomPos = SciCall_GetSelectionNEnd(0);
+    DocLn maxLine = SciCall_LineFromPosition(bottomPos);
+    DocPosU bottomSelIdx = 0;
+
+    for (DocPosU i = 1; i < numSelections; ++i) {
+        DocPos const pos = SciCall_GetSelectionNEnd(i);
+        DocLn const line = SciCall_LineFromPosition(pos);
+        if (line > maxLine) {
+            maxLine = line;
+            bottomPos = pos;
+            bottomSelIdx = i;
+        }
+    }
+
+    DocLn const lineCount = SciCall_GetLineCount();
+    if (maxLine >= lineCount - 1) {
+        return;
+    }
+
+    DocLn const targetLine = maxLine + 1;
+    DocPos const caretPos = SciCall_GetSelectionNCaret(bottomSelIdx);
+    DocPos const anchorPos = SciCall_GetSelectionNAnchor(bottomSelIdx);
+    DocPos const caretCol = SciCall_GetColumn(caretPos);
+    DocPos const anchorCol = SciCall_GetColumn(anchorPos);
+
+    DocPos const newCaret = SciCall_FindColumn(targetLine, caretCol);
+    DocPos const newAnchor = (caretPos == anchorPos) ? newCaret : SciCall_FindColumn(targetLine, anchorCol);
+
+    SciCall_AddSelection(newCaret, newAnchor);
+    Sci_ScrollSelectionToView();
+    SciCall_ChooseCaretX();
+    InvalidateRect(Globals.hwndEdit, NULL, FALSE);
+    UpdateWindow(Globals.hwndEdit);
 }
 
 

@@ -6115,6 +6115,53 @@ void CenterDlgInParent(HWND hDlg, bool bLock)
 
 //=============================================================================
 //
+//  PositionDlgTopRight()
+//
+void PositionDlgTopRight(HWND hDlg)
+{
+    if (!hDlg) { return; }
+
+    HWND hParent = GetParent(hDlg);
+    if (!hParent) {
+        hParent = Globals.hwndMain;
+    }
+
+    RECT rcDlg = { 0 };
+    GetWindowRect(hDlg, &rcDlg);
+    int const dlgWidth = rcDlg.right - rcDlg.left;
+    int const dlgHeight = rcDlg.bottom - rcDlg.top;
+
+    RECT rcRef = { 0 };
+    if (IsWindow(Globals.hwndEdit)) {
+        GetWindowRect(Globals.hwndEdit, &rcRef);
+    } else if (IsWindow(hParent)) {
+        GetWindowRect(hParent, &rcRef);
+    }
+
+    HMONITOR const hMonitor = MonitorFromRect(&rcRef, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO mi = { sizeof(MONITORINFO) };
+    GetMonitorInfo(hMonitor, &mi);
+
+    UINT const dpi = Scintilla_GetWindowDPI(hDlg);
+    UINT const dpiVal = (dpi ? dpi : USER_DEFAULT_SCREEN_DPI);
+    int const marginX = MulDiv(24, dpiVal, USER_DEFAULT_SCREEN_DPI);
+    int const marginY = MulDiv(10, dpiVal, USER_DEFAULT_SCREEN_DPI);
+
+    int const xMin = mi.rcWork.left;
+    int const xMax = mi.rcWork.right - dlgWidth;
+    int const yMin = mi.rcWork.top;
+    int const yMax = mi.rcWork.bottom - dlgHeight;
+
+    int const x = rcRef.right - dlgWidth - marginX;
+    int const y = rcRef.top + marginY;
+
+    SetWindowPos(hDlg, NULL, clampi(x, xMin, xMax), clampi(y, yMin, yMax), 0, 0, SWP_NOZORDER | SWP_NOSIZE);
+    SetForegroundWindow(hDlg);
+}
+
+
+//=============================================================================
+//
 //  GetDlgPos()
 //
 void GetDlgPos(HWND hDlg, LPINT xDlg, LPINT yDlg)
@@ -6596,7 +6643,7 @@ void StatusSetText(HWND hwnd, BYTE nPart, LPCWSTR lpszText)
             int aSingleSect[1] = { -1 };
             SendMessage(hwnd, SB_SETPARTS, (WPARAM)1, (LPARAM)aSingleSect);
         }
-        DWORD const wParam = (bSimplSB ? 0 : nPart) | SBT_OWNERDRAW;
+        DWORD const wParam = (bSimplSB ? 0 : nPart) | SBT_OWNERDRAW | SBT_NOBORDERS;
         SendMessage(hwnd, SB_SETTEXT, (WPARAM)wParam, (LPARAM)lpszText);
     }
 }
@@ -6612,7 +6659,7 @@ void StatusSetTextID(HWND hwnd, BYTE nPart, UINT uID)
         int aSingleSect[1] = { -1 };
         SendMessage(hwnd, SB_SETPARTS, (WPARAM)1, (LPARAM)aSingleSect);
     }
-    DWORD const wParam = (bSimplSB ? 0 : nPart) | SBT_OWNERDRAW;
+    DWORD const wParam = (bSimplSB ? 0 : nPart) | SBT_OWNERDRAW | SBT_NOBORDERS;
     if (!uID) {
         SendMessage(hwnd, SB_SETTEXT, (WPARAM)wParam, (LPARAM)L"");
     } else {

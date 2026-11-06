@@ -95,7 +95,7 @@ IF EXIST "%TEMP_NAME%"     RD /S /Q "%TEMP_NAME%"
 IF NOT EXIST "%TEMP_NAME%" MD "%TEMP_NAME%"
 IF NOT EXIST "Packages"    MD "Packages"
 
-FOR %%A IN ("Notepad3_ptb_x64.ini" "Notepad3_ptb_x86.ini" "minipath.ini" "..\%1\Notepad3.exe"^ 
+FOR %%A IN ("Notepad3_ptb_x64.ini" "Notepad3_ptb_x86.ini" "minipath.ini" "ContextMenu.cmd" "右键菜单管理.cmd" "..\%1\Notepad3.exe"^ 
 "..\%1\minipath.exe" "..\%1\np3encrypt.exe") DO COPY /Y /V "%%A" "%TEMP_NAME%\"
 
 If %2% == x64 (
@@ -128,7 +128,8 @@ IF NOT EXIST "%FAVORITES%" MD "%FAVORITES%"
 PUSHD "%TEMP_NAME%"
 "%SEVENZIP%" a -tzip -mcu=on -mx=9^
  "%ZIP_NAME%.zip" "Notepad3.exe" "Notepad3.ini"^
- "Favorites" "minipath.exe" "minipath.ini" "np3encrypt.exe" "grepWin"  "lng" "Themes" "Docs">NUL
+ "Favorites" "minipath.exe" "minipath.ini" "np3encrypt.exe" "grepWin"  "lng" "Themes" "Docs"^
+ "ContextMenu.cmd" "右键菜单管理.cmd">NUL
 IF %ERRORLEVEL% NEQ 0 CALL :SUBMSG "ERROR" "Compilation failed!"
 
 CALL :SUBMSG "INFO" "%ZIP_NAME%.zip created successfully!"

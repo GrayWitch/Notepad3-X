@@ -142,6 +142,10 @@ void EditBookMarkLineRange(HWND hwnd);
 void EditDeleteMarkerInSelection();
 void EditSelectionMultiSelectAll();
 void EditSelectionMultiSelectAllEx(HWND hwnd, CLPCEDITFINDREPLACE edFndRpl);
+void EditSelectionMultiSelectNext();
+void EditSelectionMultiSelectSkip();
+void EditAddCursorAbove();
+void EditAddCursorBelow();
 
 //
 //  Folding Functions

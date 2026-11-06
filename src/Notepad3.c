@@ -1564,7 +1564,28 @@ int WINAPI wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, 
 
 
     MSG msg;
+    static bool s_bCtrlKChord = false;
+    static ULONGLONG s_dwCtrlKTick = 0;
+
     while (GetMessage(&msg, NULL, 0, 0)) {
+
+        if (msg.message == WM_KEYDOWN) {
+            if (s_bCtrlKChord) {
+                ULONGLONG const now = GetTickCount64();
+                s_bCtrlKChord = false;
+                if ((now - s_dwCtrlKTick) < 2000) {
+                    if (msg.wParam == 'D' || msg.wParam == 'd') {
+                        PostMessage(hwnd, WM_COMMAND, MAKEWPARAM(IDM_EDIT_SKIPMATCH, 0), 0);
+                        continue;
+                    }
+                }
+            } else if ((msg.wParam == 'K' || msg.wParam == 'k') && (GetKeyState(VK_CONTROL) < 0) &&
+                       (GetKeyState(VK_MENU) >= 0) && (GetKeyState(VK_SHIFT) >= 0)) {
+                s_bCtrlKChord = true;
+                s_dwCtrlKTick = GetTickCount64();
+                continue;
+            }
+        }
 
         if (IsWindow(Globals.hwndDlgFindReplace) && ((msg.hwnd == Globals.hwndDlgFindReplace) || IsChild(Globals.hwndDlgFindReplace, msg.hwnd))) {
             const int iTr = TranslateAccelerator(Globals.hwndDlgFindReplace, hAccFindReplace, &msg);
@@ -2279,8 +2300,8 @@ HWND InitInstance(const HINSTANCE hInstance, int nCmdShow)
     SciCall_StyleSetBack(STYLE_DEFAULT, GetModeBkColor(UseDarkMode()));
     SciCall_StyleClearAll();
 
-    // Pre-set margin backgrounds to match current mode (margins use btnface, not editor bkg)
-    COLORREF const clrMarginPre = GetModeBtnfaceColor(UseDarkMode());
+    // Pre-set margin backgrounds to match current mode (seamless with editor bkg)
+    COLORREF const clrMarginPre = GetModeBkColor(UseDarkMode());
     SciCall_StyleSetBack(STYLE_LINENUMBER, clrMarginPre);
     SciCall_SetMarginBackN(MARGIN_SCI_LINENUM, clrMarginPre);
     SciCall_SetMarginBackN(MARGIN_SCI_BOOKMRK, clrMarginPre);
@@ -2596,8 +2617,15 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT umsg, WPARAM wParam, LPARAM lParam)
 #ifdef D_NP3_WIN10_DARK_MODE
     case WM_SETTINGCHANGE: {
         if (IsColorSchemeChangeMessage(lParam)) {
-            RefreshTitleBarThemeColor(hwnd);
-            SendMessage(Globals.hwndEdit, WM_THEMECHANGED, 0, 0);
+            bool const bNewDarkMode = IsSettingDarkMode();
+            if (bNewDarkMode != UseDarkMode()) {
+                SetDarkMode(bNewDarkMode);
+                Style_OnDarkModeChanged(bNewDarkMode);
+                PostMessage(hwnd, WM_THEMECHANGED, 0, 0);
+            } else {
+                RefreshTitleBarThemeColor(hwnd);
+                SendMessage(Globals.hwndEdit, WM_THEMECHANGED, 0, 0);
+            }
         }
         // Forward to Scintilla to refresh mouse scroll settings (issue #5223)
         SendMessage(Globals.hwndEdit, WM_SETTINGCHANGE, wParam, lParam);
@@ -2799,6 +2827,36 @@ static LRESULT CALLBACK _EditSubclassProc(
         break;
 
     case WM_LBUTTONDOWN:
+        if (NP3Util_IsAutoScrollMode()) {
+            NP3Util_AutoScrollStop(hwnd);
+            return 0;
+        }
+        if ((GetKeyState(VK_MENU) < 0) && (GetKeyState(VK_CONTROL) >= 0) && (GetKeyState(VK_SHIFT) >= 0)) {
+            // VSCode style Alt+Click to add or drop multi-cursor
+            POINT const pt = POINTFromLParam(lParam);
+            DocPos const pos = SciCall_CharPositionFromPointClose(pt.x, pt.y);
+            if (pos >= 0) {
+                DocPosU const selCount = SciCall_GetSelections();
+                int droppedIdx = -1;
+                for (DocPosU i = 0; i < selCount; ++i) {
+                    DocPos const sStart = SciCall_GetSelectionNStart(i);
+                    DocPos const sEnd = SciCall_GetSelectionNEnd(i);
+                    if ((pos >= sStart && pos <= sEnd) || (sStart == sEnd && pos == sStart)) {
+                        droppedIdx = (int)i;
+                        break;
+                    }
+                }
+                if (droppedIdx >= 0 && selCount > 1) {
+                    SciCall_DropSelectionN(droppedIdx);
+                } else if (droppedIdx < 0) {
+                    SciCall_AddSelection(pos, pos);
+                }
+                SetFocus(hwnd);
+                return 0;
+            }
+        }
+        break;
+
     case WM_RBUTTONDOWN:
         if (NP3Util_IsAutoScrollMode()) {
             NP3Util_AutoScrollStop(hwnd);
@@ -2825,6 +2883,90 @@ static LRESULT CALLBACK _EditSubclassProc(
             NP3Util_AutoScrollStop(hwnd);
         }
         break;
+
+    case WM_KEYDOWN: {
+        static bool s_bCtrlKChord = false;
+        static ULONGLONG s_dwCtrlKTick = 0;
+
+        bool const bCtrl = (GetKeyState(VK_CONTROL) < 0);
+        bool const bShift = (GetKeyState(VK_SHIFT) < 0);
+        bool const bAlt = (GetKeyState(VK_MENU) < 0);
+
+        // Check Ctrl+K chord
+        if (s_bCtrlKChord) {
+            ULONGLONG const now = GetTickCount64();
+            s_bCtrlKChord = false;
+            if ((now - s_dwCtrlKTick) < 2000) {
+                if (wParam == 'D' || wParam == 'd') {
+                    EditSelectionMultiSelectSkip();
+                    return 0;
+                }
+            }
+        }
+
+        if ((wParam == 'K' || wParam == 'k') && bCtrl && !bShift && !bAlt) {
+            s_bCtrlKChord = true;
+            s_dwCtrlKTick = GetTickCount64();
+            return 0;
+        }
+
+        // VSCode Ctrl+D: Select next occurrence
+        if ((wParam == 'D' || wParam == 'd') && bCtrl && !bShift && !bAlt) {
+            EditSelectionMultiSelectNext();
+            return 0;
+        }
+
+        // VSCode Ctrl+Shift+L: Select all occurrences
+        if ((wParam == 'L' || wParam == 'l') && bCtrl && bShift && !bAlt) {
+            EditSelectionMultiSelectAll();
+            return 0;
+        }
+
+        // VSCode Ctrl+Alt+Up: Add cursor above
+        if (wParam == VK_UP && bCtrl && bAlt && !bShift) {
+            EditAddCursorAbove();
+            return 0;
+        }
+
+        // VSCode Ctrl+Alt+Down: Add cursor below
+        if (wParam == VK_DOWN && bCtrl && bAlt && !bShift) {
+            EditAddCursorBelow();
+            return 0;
+        }
+
+        // VSCode Ctrl+Shift+K: Delete line
+        if ((wParam == 'K' || wParam == 'k') && bCtrl && bShift && !bAlt) {
+            SendMessage(Globals.hwndMain, WM_COMMAND, MAKEWPARAM(IDM_EDIT_DELETELINE, 0), 0);
+            return 0;
+        }
+
+        // VSCode Shift+Alt+Down: Duplicate line down
+        if (wParam == VK_DOWN && bAlt && bShift && !bCtrl) {
+            SendMessage(Globals.hwndMain, WM_COMMAND, MAKEWPARAM(IDM_EDIT_DUPLINEORSELECTION, 0), 0);
+            return 0;
+        }
+
+        // VSCode Shift+Alt+Up: Duplicate line up
+        if (wParam == VK_UP && bAlt && bShift && !bCtrl) {
+            SendMessage(Globals.hwndMain, WM_COMMAND, MAKEWPARAM(IDM_EDIT_DUPLINEORSELECTION, 0), 0);
+            return 0;
+        }
+
+        // VSCode Shift+Alt+A: Toggle block comment
+        if ((wParam == 'A' || wParam == 'a') && bAlt && bShift && !bCtrl) {
+            SendMessage(Globals.hwndMain, WM_COMMAND, MAKEWPARAM(IDM_EDIT_STREAMCOMMENT, 0), 0);
+            return 0;
+        }
+
+        // VSCode Escape: cancel multi-cursor to single caret
+        if (wParam == VK_ESCAPE && !bCtrl && !bShift && !bAlt) {
+            if (Sci_IsMultiOrRectangleSelection()) {
+                DocPos const curPos = SciCall_GetCurrentPos();
+                Sci_GotoPosChooseCaret(curPos);
+                return 0;
+            }
+        }
+    } break;
 
     case WM_NCDESTROY:
         RemoveWindowSubclass(hwnd, _EditSubclassProc, uIdSubclass);
@@ -3018,6 +3160,9 @@ static void  _InitializeSciEditCtrl(HWND hwndEditCtrl)
     //~SciCall_AutoCSetCaseInsensitiveBehaviour(SC_CASEINSENSITIVEBEHAVIOUR_IGNORECASE);
     SciCall_AutoCSetOrder(SC_ORDER_PRESORTED); // already sorted ~ SC_ORDER_PERFORMSORT
 
+    SciCall_ClearCmdKey(('D' & 0xFF) | (SCMOD_CTRL << 16));
+    SciCall_ClearCmdKey(('L' & 0xFF) | ((SCMOD_CTRL | SCMOD_SHIFT) << 16));
+
     // Middle-click auto-scroll subclass
     SetWindowSubclass(hwndEditCtrl, _EditSubclassProc, 0, 0);
 }
@@ -3106,13 +3251,17 @@ static bool _EvalTinyExpr(bool qmark)
 static void _InitEditWndFrame()
 {
     s_cxEditFrame = 0;
-    s_cyEditFrame = 0;
+    s_cyEditFrame = ScaleIntToDPI(Globals.hwndMain, 4);
 
     s_bIsAppThemed = IsAppThemed();
 
     InitWindowCommon(s_hwndEditFrame, true);
+    ListView_SetBkColor(s_hwndEditFrame, GetModeBkColor(UseDarkMode()));
 
     if (s_bIsAppThemed) {
+
+        SetWindowLongPtr(s_hwndEditFrame, GWL_EXSTYLE, GetWindowLongPtr(s_hwndEditFrame, GWL_EXSTYLE) & ~WS_EX_CLIENTEDGE);
+        SetWindowPos(s_hwndEditFrame, NULL, 0, 0, 0, 0, SWP_NOZORDER | SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED);
 
         SetWindowLongPtr(Globals.hwndEdit, GWL_EXSTYLE, GetWindowLongPtr(Globals.hwndEdit, GWL_EXSTYLE) & ~WS_EX_CLIENTEDGE);
         SetWindowPos(Globals.hwndEdit, NULL, 0, 0, 0, 0, SWP_NOZORDER | SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED);
@@ -3323,8 +3472,8 @@ bool SelectExternalToolBar(HWND hwnd)
                         CCS_NODIVIDER | CCS_NOPARENTALIGN | CCS_ADJUSTABLE)
 
 //==== ReBar Style ============================================================
-#define NP3_WS_REBAR (WS_CHILD | WS_CLIPCHILDREN | WS_BORDER | RBS_VARHEIGHT | \
-                      RBS_BANDBORDERS | CCS_NODIVIDER | CCS_NOPARENTALIGN)
+#define NP3_WS_REBAR (WS_CHILD | WS_CLIPCHILDREN | RBS_VARHEIGHT | \
+                      CCS_NODIVIDER | CCS_NOPARENTALIGN)
 
 //=============================================================================
 //
@@ -3516,6 +3665,8 @@ void CreateBars(HWND hwnd, HINSTANCE hInstance)
     //~SendMessage(Globals.hwndToolbar, TB_SETMAXTEXTROWS, 0, 0);
     DWORD const tbxstyle = (DWORD)SendMessage(Globals.hwndToolbar, TB_GETEXTENDEDSTYLE, 0, 0);
     SendMessage(Globals.hwndToolbar,TB_SETEXTENDEDSTYLE,0,(tbxstyle | (TBSTYLE_EX_MIXEDBUTTONS | TBSTYLE_EX_DOUBLEBUFFER)));
+    SendMessage(Globals.hwndToolbar, TB_SETINDENT, (WPARAM)ScaleIntToDPI(hwnd, 6), 0);
+    SendMessage(Globals.hwndToolbar, TB_SETPADDING, 0, MAKELPARAM(ScaleIntToDPI(hwnd, 8), ScaleIntToDPI(hwnd, 6)));
 
     SendMessage(Globals.hwndToolbar, TB_ADDBUTTONS, COUNTOF(s_tbbMainWnd), (LPARAM)s_tbbMainWnd);
 
@@ -3555,22 +3706,21 @@ void CreateBars(HWND hwnd, HINSTANCE hInstance)
     REBARBANDINFO rbBand = { sizeof(REBARBANDINFO) };
     rbBand.fMask = RBBIM_COLORS /*| RBBIM_TEXT | RBBIM_BACKGROUND */ |
                    RBBIM_STYLE | RBBIM_CHILD | RBBIM_CHILDSIZE /*| RBBIM_SIZE*/;
-    //rbBand.fStyle  = /*RBBS_CHILDEDGE |*//* RBBS_BREAK |*/ RBBS_FIXEDSIZE /*| RBBS_GRIPPERALWAYS*/;
-    rbBand.fStyle = s_bIsAppThemed ? (RBBS_FIXEDSIZE | RBBS_CHILDEDGE) : RBBS_FIXEDSIZE;
+    rbBand.fStyle = RBBS_FIXEDSIZE;
     rbBand.hbmBack = NULL;
     rbBand.lpText  = L"Toolbar";
     rbBand.clrFore = GetModeTextColor(UseDarkMode());
-    rbBand.clrBack = GetModeBkColor(UseDarkMode());
+    rbBand.clrBack = GetModeBtnfaceColor(UseDarkMode());
     rbBand.hwndChild  = Globals.hwndToolbar;
     rbBand.cxMinChild = (rc.right - rc.left) * COUNTOF(s_tbbMainWnd);
-    rbBand.cyMinChild = (rc.bottom - rc.top) + (2 * rc.top);
+    rbBand.cyMinChild = (rc.bottom - rc.top) + ScaleIntToDPI(hwnd, 4);
     rbBand.cx         = 0;
     SendMessage(Globals.hwndRebar, RB_INSERTBAND, (WPARAM)-1, (LPARAM)&rbBand);
 
     SetWindowPos(Globals.hwndRebar, NULL, 0, 0, 0, 0, SWP_NOZORDER);
     GetWindowRect(Globals.hwndRebar, &rc);
     s_cyReBar = (rc.bottom - rc.top);
-    s_cyReBarFrame = s_bIsAppThemed ? 0 : 2;  // (!) frame color is same as INITIAL title-bar ???
+    s_cyReBarFrame = 0;
 
     ShowWindow(Globals.hwndRebar, Settings.ShowToolbar ? SW_SHOWDEFAULT : SW_HIDE);
 
@@ -3869,26 +4019,41 @@ LRESULT MsgDrawItem(HWND hwnd, WPARAM wParam, LPARAM lParam)
 #ifdef D_NP3_WIN10_DARK_MODE
 
         if (UseDarkMode()) {
-            // overpaint part frames
+            // overpaint part frames with flat background brush (no 3D boxes)
             HWND const hWndItem = pDIS->hwndItem;
             int const bdh = Scintilla_GetSystemMetricsForDpi(SM_CYFRAME, Scintilla_GetWindowDPI(hWndItem));
             HDC const hdcFrm = GetWindowDC(hWndItem);
             RECT rcf = rc;
-            for (int i = 1; i < bdh; ++i) {
+            for (int i = 1; i <= bdh; ++i) {
                 FrameRect(hdcFrm, &rcf, Globals.hbrDarkModeBtnFcBrush);
                 rcf.left -= 1;
                 rcf.top -= 1;
                 rcf.bottom += 1;
                 rcf.right += 1;
             }
-            FrameRect(hdcFrm, &rcf, GetSysColorBrush(COLOR_3DDKSHADOW));
             ReleaseDC(hWndItem, hdcFrm);
         }
 
 #endif
 
+        // Fill background and draw vertically centered text with subtle separator
+        ExtTextOut(hdc, rc.left, rc.top, ETO_OPAQUE, &rc, L"", 0, NULL);
         LPCWSTR const text = (LPCWSTR)(pDIS->itemData);
-        ExtTextOut(hdc, rc.left + 1, rc.top + 1, ETO_OPAQUE | ETO_NUMERICSLOCAL, &rc, text, (int)wcslen(text), NULL);
+        if (text && *text) {
+            RECT rcText = rc;
+            rcText.left += ScaleIntToDPI(pDIS->hwndItem, 4);
+            rcText.right -= ScaleIntToDPI(pDIS->hwndItem, 2);
+            int const oldBkMode = SetBkMode(hdc, TRANSPARENT);
+            DrawTextW(hdc, text, -1, &rcText, DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_NOPREFIX);
+            SetBkMode(hdc, oldBkMode);
+        }
+
+        // Subtle 1px vertical divider between status bar parts
+        COLORREF const sepColor = UseDarkMode() ? RGB(0x3E, 0x3E, 0x42) : RGB(0xD8, 0xDC, 0xE0);
+        RECT rcSep = { rc.right - 1, rc.top + ScaleIntToDPI(pDIS->hwndItem, 3), rc.right, rc.bottom - ScaleIntToDPI(pDIS->hwndItem, 3) };
+        COLORREF const oldBk = SetBkColor(hdc, sepColor);
+        ExtTextOut(hdc, 0, 0, ETO_OPAQUE, &rcSep, L"", 0, NULL);
+        SetBkColor(hdc, oldBk);
 
         //~EndPaint(hWndItem, &ps);
         return TRUE;
@@ -4963,6 +5128,10 @@ LRESULT MsgInitMenu(HWND hwnd, WPARAM wParam, LPARAM lParam)
     EnableCmd(hmenu, IDM_EDIT_MOVELINEUP, !ro);
     EnableCmd(hmenu, IDM_EDIT_MOVELINEDOWN, !ro);
     EnableCmd(hmenu, IDM_EDIT_DUPLINEORSELECTION, !ro);
+    EnableCmd(hmenu, IDM_EDIT_SELECTNEXTMATCH, !te);
+    EnableCmd(hmenu, IDM_EDIT_SKIPMATCH, !te);
+    EnableCmd(hmenu, IDM_EDIT_ADDCURSOR_ABOVE, !te);
+    EnableCmd(hmenu, IDM_EDIT_ADDCURSOR_BELOW, !te);
     EnableCmd(hmenu, IDM_EDIT_LINETRANSPOSE, !ro);
     EnableCmd(hmenu, IDM_EDIT_CUTLINE, !ro);
     EnableCmd(hmenu, IDM_EDIT_COPYLINE, !mrs);
@@ -6053,6 +6222,26 @@ static bool _HandleEditBasicCommands(HWND hwnd, UINT umsg, WPARAM wParam, LPARAM
         }
     }
     break;
+
+
+    case IDM_EDIT_SELECTNEXTMATCH:
+        EditSelectionMultiSelectNext();
+        break;
+
+
+    case IDM_EDIT_SKIPMATCH:
+        EditSelectionMultiSelectSkip();
+        break;
+
+
+    case IDM_EDIT_ADDCURSOR_ABOVE:
+        EditAddCursorAbove();
+        break;
+
+
+    case IDM_EDIT_ADDCURSOR_BELOW:
+        EditAddCursorBelow();
+        break;
 
 
     case IDM_EDIT_MOVELINEUP:
@@ -7632,14 +7821,11 @@ static bool _HandleViewAndSettingsCommands(HWND hwnd, UINT umsg, WPARAM wParam, 
 
     case IDM_VIEW_WIN_DARK_MODE: {
 
-        if (!IsYesOkay(InfoBoxLng(MB_OKCANCEL | MB_ICONWARNING, Constants.SuppressKey.MsgResetScheme, IDS_MUI_WARN_STYLE_RESET))) {
-           break;
-        }
-
         Settings.WinThemeDarkMode = IsSettingDarkMode() ? WINDSPMOD_LIGHT : WINDSPMOD_DARK; // toggle non auto!
-        SetDarkMode(IsSettingDarkMode());
+        bool const bNewDarkMode = IsSettingDarkMode();
+        SetDarkMode(bNewDarkMode);
 
-        Style_DynamicThemesMenuCmd(IDM_THEMES_FACTORY_RESET);
+        Style_OnDarkModeChanged(bNewDarkMode);
 
         if (IsWindow(Globals.hwndDlgFindReplace)) {
             //~SendMessage(Globals.hwndDlgFindReplace, WM_THEMECHANGED, 0, 0); ~ (!) incomplete update
@@ -11169,7 +11355,7 @@ static void  _CalculateStatusbarSections(int vSectionWidth[], sectionTxt_t tchSt
         if (g_iStatusbarVisible[i]) {
             if (g_iStatusbarWidthSpec[i] == 0) { // dynamic optimized
                 SIZE const size = _StatusCalcTextSize(Globals.hwndStatus, tchStatusBar[i]);
-                vSectionWidth[i] = (size.cx + 8L);
+                vSectionWidth[i] = (size.cx + ScaleIntToDPI(Globals.hwndStatus, 14));
             } else if (g_iStatusbarWidthSpec[i] < -1) { // fixed pixel count
                 vSectionWidth[i] = -(g_iStatusbarWidthSpec[i]);
             }
@@ -11198,7 +11384,7 @@ static void  _CalculateStatusbarSections(int vSectionWidth[], sectionTxt_t tchSt
     for (int i = 0; i < STATUS_SECTOR_COUNT; ++i) {
         if (bIsPropSection[i]) {
             SIZE const size = _StatusCalcTextSize(Globals.hwndStatus, tchStatusBar[i]);
-            int const iMinWidth = (size.cx + 8L);
+            int const iMinWidth = (size.cx + ScaleIntToDPI(Globals.hwndStatus, 14));
             vMinWidth[i] = iMinWidth;
             iTotalMinWidth += iMinWidth;
         }
@@ -11878,7 +12064,7 @@ static void  _UpdateStatusbarDelayed(bool bForceRedraw)
         SendMessage(Globals.hwndStatus, WM_SETREDRAW, FALSE, 0);
 
         SIZE const size = _StatusCalcTextSize(Globals.hwndStatus, L"X");
-        SendMessage(Globals.hwndStatus, SB_SETMINHEIGHT, MAKEWPARAM(size.cy + 2, 0), 0);
+        SendMessage(Globals.hwndStatus, SB_SETMINHEIGHT, MAKEWPARAM(size.cy + ScaleIntToDPI(Globals.hwndStatus, 6), 0), 0);
 
         SendMessage(Globals.hwndStatus, SB_SETPARTS, (WPARAM)cnt, (LPARAM)aStatusbarSections);
         cnt = 0;

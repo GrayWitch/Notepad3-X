@@ -194,7 +194,7 @@ BEGIN
             MENUITEM "复制选区或当前行(&C)\tCtrl+C",     IDM_EDIT_COPY
             MENUITEM "复制选区所在整行或当前行(&Y)\tCtrl+Shift+C", IDM_EDIT_COPYLINE
             MENUITEM SEPARATOR
-            MENUITEM "复写当前行/选区(&D)\tCtrl+D",            IDM_EDIT_DUPLINEORSELECTION
+            MENUITEM "复写当前行/选区(&D)\tShift+Alt+Down",   IDM_EDIT_DUPLINEORSELECTION
             MENUITEM "与上一行调换(&T)\tAlt+D",                IDM_EDIT_LINETRANSPOSE
             MENUITEM "删除行(&E)\tCtrl+Shift+D",               IDM_EDIT_DELETELINE
             MENUITEM SEPARATOR
@@ -238,7 +238,7 @@ BEGIN
                 MENUITEM SEPARATOR
                 MENUITEM "自定义(&W)...\tAlt+Q",               IDM_EDIT_ENCLOSESELECTION
             END
-            MENUITEM "复写选定内容/行(&D)\tCtrl+D",            IDM_EDIT_DUPLINEORSELECTION
+            MENUITEM "复写选定内容/行(&D)\tShift+Alt+Down",   IDM_EDIT_DUPLINEORSELECTION
             MENUITEM SEPARATOR
             MENUITEM "填充空格(&P)\tAlt+B",                    IDM_EDIT_PADWITHSPACES
             MENUITEM "删除第一个字符(&F)\tAlt+Z",               IDM_EDIT_STRIP1STCHAR
@@ -318,7 +318,10 @@ BEGIN
             MENUITEM "选定直到上一个查找匹配(&P)\tCtrl+Alt+Shift+F2",  IDM_EDIT_SELTOPREV
             MENUITEM SEPARATOR
             MENUITEM "选定单词或行(&W)\tCtrl+Spc",             IDM_EDIT_SELECTWORD
-            MENUITEM "选定全部匹配(&A)\tCtrl+Shift+Spc",       IDM_EDIT_SELECTALLMATCHES
+            MENUITEM "选定下一个匹配(&D)\tCtrl+D",                IDM_EDIT_SELECTNEXTMATCH
+            MENUITEM "选定全部匹配(&A)\tCtrl+Shift+L",             IDM_EDIT_SELECTALLMATCHES
+            MENUITEM "在上方添加光标(&U)\tCtrl+Alt+Up",            IDM_EDIT_ADDCURSOR_ABOVE
+            MENUITEM "在下方添加光标(&D)\tCtrl+Alt+Down",          IDM_EDIT_ADDCURSOR_BELOW
             MENUITEM SEPARATOR
             MENUITEM "打开所选内容所在的文件夹(&C)",          IDM_EDIT_OPEN_CONTAINING_FOLDER_SEL
             MENUITEM "打开所选内容指向的文件(&F)",            IDM_EDIT_OPEN_FILE_FROM_SEL

@@ -368,10 +368,9 @@ typedef struct CmdMessageQueue_t {
 #define rgbBlueColorRef      (RGB(170, 200, 255))
 
 // GetSysColor(...) not working for DarkMode 
-//#define rgbDarkBtnFcColorRef (RGB(0x33, 0x33, 0x33))
-#define rgbDarkBtnFcColorRef (RGB(0x41, 0x41, 0x41))
-#define rgbDarkTxtColorRef   (RGB(0xDE, 0xDE, 0xDE))
-#define rgbDarkBkgColorRef   (RGB(0x14, 0x14, 0x14))
+#define rgbDarkBtnFcColorRef (RGB(0x2D, 0x2D, 0x30))
+#define rgbDarkTxtColorRef   (RGB(0xE6, 0xE6, 0xE6))
+#define rgbDarkBkgColorRef   (RGB(0x1E, 0x1E, 0x1E))
 
 // --------------------------------------------------------------------------
 

@@ -128,6 +128,7 @@ void ComboBox_SetTextMB2W(HWND hDlg, int nIDDlgItem, LPCSTR lpString);
 //void ComboBox_AddStringMB2W(HWND hDlg, int nIDDlgItem, LPCSTR lpString);
 
 void  CenterDlgInParent(HWND hDlg, bool bLock);
+void  PositionDlgTopRight(HWND hDlg);
 void  GetDlgPos(HWND hDlg, LPINT xDlg, LPINT yDlg);
 void  SetDlgPos(HWND hDlg, int xDlg, int yDlg);
 POINT GetCenterOfDlgInParent(const RECT* const rcDlg, const HWND hParent);

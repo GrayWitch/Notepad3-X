@@ -55,6 +55,7 @@ void     ThemesItems_Init();
 void     ThemesItems_Release();
 bool     Style_InsertThemesMenu(HMENU hMenuBar);
 bool     Style_DynamicThemesMenuCmd(int cmd);
+void     Style_OnDarkModeChanged(bool bNewDarkMode);
 
 float  Style_GetCurrentLexerFontSize();
 void   Style_SetLexer(HWND hwnd,PEDITLEXER pLexNew);
