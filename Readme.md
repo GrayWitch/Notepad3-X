@@ -1,222 +1,230 @@
 # Notepad3
 
-**A fast, lightweight, Scintilla-based text editor for Windows**
+**基于 Scintilla 的快速、轻量的 Windows 文本编辑器**
+
+[English](Readme.en.md) · **简体中文**
 
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg?style=flat-square)](https://opensource.org/licenses/BSD-3-Clause)
 [![CI](https://img.shields.io/github/actions/workflow/status/rizonesoft/Notepad3/build.yml?style=flat-square&label=CI)](https://github.com/rizonesoft/Notepad3/actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/v/release/rizonesoft/Notepad3?style=flat-square&label=Release&color=0e7490)](https://rizonesoft.com/downloads/notepad3/)
 [![Nightly](https://img.shields.io/github/v/release/rizonesoft/Notepad3?include_prereleases&style=flat-square&label=Nightly&color=6e40c9)](https://github.com/rizonesoft/Notepad3/releases)
 
-[Website](https://rizonesoft.com/downloads/notepad3/) · [Downloads](https://github.com/rizonesoft/Notepad3/releases) · [Documentation](https://rizonesoft.com/documents/notepad3/) · [FAQ](readme/faq/FAQ.md) · [Changelog](https://rizonesoft.com/downloads/notepad3/update) · [Sponsor](https://github.com/sponsors/rizonesoft)
+[官网](https://rizonesoft.com/downloads/notepad3/) · [下载](https://github.com/rizonesoft/Notepad3/releases) · [文档](https://rizonesoft.com/documents/notepad3/) · [常见问题](readme/faq/FAQ.md) · [更新日志](https://rizonesoft.com/downloads/notepad3/update) · [赞助](https://github.com/sponsors/rizonesoft)
 
 ---
 
-Notepad3 is a free, open-source text editor with syntax highlighting for Windows. Built on the [Scintilla](https://www.scintilla.org/) editing component and [Lexilla](https://www.scintilla.org/Lexilla.html) lexer library, it has a small memory footprint while being powerful enough for professional programming and everyday text editing.
+Notepad3 是一款免费、开源的 Windows 文本编辑器，支持语法高亮。它构建于 [Scintilla](https://www.scintilla.org/) 编辑组件和 [Lexilla](https://www.scintilla.org/Lexilla.html) 词法分析库之上，内存占用小，却足以胜任专业编程与日常文本编辑。
 
-> Notepad3 is based on code from Florian Balmer's [Notepad2](https://www.flos-freeware.ch/notepad2.html) and XhmikosR's [Notepad2-mod](https://xhmikosr.github.io/notepad2-mod/). MiniPath is based on Florian Balmer's metapath.
+> Notepad3 基于 Florian Balmer 的 [Notepad2](https://www.flos-freeware.ch/notepad2.html) 和 XhmikosR 的 [Notepad2-mod](https://xhmikosr.github.io/notepad2-mod/) 代码开发；MiniPath 则源自 Florian Balmer 的 metapath。
 
-<!-- TODO: Add a screenshot of the Notepad3 main window here.
-     Save the image as doc/screenshot.png and uncomment the line below:
-     ![Notepad3 Screenshot](doc/screenshot.png)
+<!-- TODO: 在此处补充 Notepad3 主窗口截图。
+     将图片保存为 doc/screenshot.png 并取消注释下面这一行：
+     ![Notepad3 截图](doc/screenshot.png)
 -->
 
-## Features
+## 功能特性
 
-### Editing
-- **Code folding** with toggle-all support
-- **Bookmarks** for quick navigation within files
-- **Word auto-completion** with configurable fill-up characters
-- **Mark all occurrences** of a selected word with occurrence count display
-- **Find and Replace** with [PCRE2](https://github.com/PCRE2Project/pcre2) regular expression engine
-- **[Focused View](readme/focusedview/FocusedView.md)** — filter display to show only lines matching the current word/selection (Ctrl+Alt+V), with fold, bookmark, and highlight modes
-- **[TinyExpr++](readme/tinyexprcpp/TinyExprPP.md)** — inline math expression evaluation with 80+ functions (type `expression=?` to evaluate in-place, use `${expr}` in line numbering).
-- **Undo/Redo** that preserves selection state
-- **Visual Studio–style** copy/paste of the current line (when nothing is selected)
-- **Virtual space** rectangular selection (Alt+Drag)
-- **Accelerated word navigation** with configurable delimiters
-- **Insert GUIDs** directly into your document
-- **Clipboard monitoring mode** (`/b` command-line switch) — automatically appends every clipboard change as a new entry at the end of the document; stop at any time via **Edit → Stop Clipboard Monitoring** without closing the editor.
+### 编辑
 
-### Syntax Highlighting
-Over 55 languages supported, including:
+- **代码折叠**，支持一键全部展开 / 折叠
+- **书签**，在文件内快速定位
+- **单词自动补全**，可配置触发补全的填充字符
+- **标记所有匹配项** —— 高亮选中单词的全部出现位置，并显示匹配数量
+- **查找与替换**，采用 [PCRE2](https://github.com/PCRE2Project/pcre2) 正则表达式引擎
+- **[聚焦视图](readme/focusedview/FocusedView.md)** —— 只显示与当前单词 / 选区匹配的行（Ctrl+Alt+V），支持折叠、书签与高亮三种模式
+- **[TinyExpr++](readme/tinyexprcpp/TinyExprPP.md)** —— 行内数学表达式求值，内置 80 多个函数（输入 `表达式=?` 即可就地计算，也可在行号中使用 `${expr}`）
+- **撤销 / 重做**保留选区状态
+- 未选中内容时，按 **Visual Studio 风格**复制 / 粘贴当前行
+- **虚拟空格**矩形选区（Alt+拖拽）
+- 可配置分隔符的**加速单词跳转**
+- 在文档中直接**插入 GUID**
+- **剪贴板监视模式**（`/b` 命令行开关）—— 每次剪贴板变化都会自动作为新条目追加到文档末尾；可随时通过 **编辑 → 停止剪贴板监视** 结束，无需关闭编辑器
 
-> ANSI Art, Apache Config, Assembly, AutoHotkey, AutoIt3, AviSynth, Awk, Batch, C/C++, C#, CMake, CoffeeScript, CSS, CSV, D, Dart, Diff, F77/Fortran, Go, HTML/XML, Java, JavaScript, JSON, Julia, Kotlin, KiXtart, LaTeX, Lua, Makefiles, Markdown, MATLAB, Nim, NSIS, Pascal, Perl, PHP, PowerShell, Python, R/S-Plus, Registry, Resource Script, Ruby, Rust, Shell Script, SQL, SystemVerilog, Tcl, TOML, VBScript, VHDL, Verilog, Visual Basic, YAML, and more.
+### 语法高亮
 
-### File Handling
-- **[AES-256 Rijndael](readme/encryption/Encryption.md)** encryption/decryption (in-app and command-line batch tool)
-- **[Encoding detection](readme/uchardet/EncodingDetection.md)** powered by [uchardet](https://www.freedesktop.org/wiki/Software/uchardet/)
-- **File change monitoring** with configurable check intervals
-- **[`.LOG` auto-timestamp](readme/config/FileContentFlags.md#log-auto-timestamp)** — files whose first line is `.LOG` get a fresh date + time appended on open, matching classic Notepad behaviour
-- **[Emacs file variables](readme/config/FileContentFlags.md#emacs-file-variables)** support (encoding, mode, tab-width, etc.)
-- **File history** that preserves caret position and encoding
-- **Portable design** — runs from USB drives with relative path storage
+支持 55 种以上语言，包括：
 
-### Search
-- **grepWin** — integrated search-in-files tool with regex support (**Ctrl+Shift+F**)
-- **Hyperlink hotspot highlighting** — Ctrl+Click to open in browser, Alt+Click to load in editor
+> ANSI Art、Apache 配置、汇编、AutoHotkey、AutoIt3、AviSynth、Awk、批处理、C/C++、C#、CMake、CoffeeScript、CSS、CSV、D、Dart、Diff、F77/Fortran、Go、HTML/XML、Java、JavaScript、JSON、Julia、Kotlin、KiXtart、LaTeX、Lua、Makefile、Markdown、MATLAB、Nim、NSIS、Pascal、Perl、PHP、PowerShell、Python、R/S-Plus、注册表、资源脚本、Ruby、Rust、Shell 脚本、SQL、SystemVerilog、Tcl、TOML、VBScript、VHDL、Verilog、Visual Basic、YAML 等
 
-### User Interface
-- **High-DPI aware** with high-definition toolbar icons
-- **Dark mode** support with customizable colors
-- **Customizable status bar** with 16 configurable fields (line, column, encoding, [TinyExpr++](readme/tinyexprcpp/TinyExprPP.md) evaluation, Unicode code point, and more)
-- **Customizable toolbar labels** — display function names next to icons
-- **Zoom** from 10% to 1000% (Ctrl+Scroll or toolbar buttons)
-- **Transparent window mode** with configurable opacity
+### 文件处理
 
-### Localization
-26 language translations:
+- **[AES-256 Rijndael](readme/encryption/Encryption.md)** 加解密（编辑器内操作与命令行批处理工具均可）
+- 由 [uchardet](https://www.freedesktop.org/wiki/Software/uchardet/) 驱动的 **[编码检测](readme/uchardet/EncodingDetection.md)**
+- **文件变更监视**，检查间隔可配置
+- **[`.LOG` 自动时间戳](readme/config/FileContentFlags.md#log-auto-timestamp)** —— 首行为 `.LOG` 的文件在打开时会自动追加当前日期与时间，与经典记事本的行为一致
+- 支持 **[Emacs 文件变量](readme/config/FileContentFlags.md#emacs-file-variables)**（编码、模式、制表符宽度等）
+- **文件历史**会保留光标位置与编码
+- **便携设计** —— 可从 U 盘直接运行，设置使用相对路径保存
 
-> Afrikaans, Belarusian, Chinese (Simplified & Traditional), Dutch, English (US & UK), Finnish, French, German, Greek, Hindi, Hungarian, Indonesian, Italian, Japanese, Korean, Polish, Portuguese (Brazil & Portugal), Russian, Slovak, Spanish, Swedish, Turkish, Vietnamese
+### 搜索
 
-### Companion Tools
-- **[MiniPath](minipath/)** — fast file browser plugin (Ctrl+M)
-- **[grepWin](grepWin/)** — powerful search-and-replace across files
+- **grepWin** —— 集成的文件内容搜索工具，支持正则表达式（**Ctrl+Shift+F**）
+- **超链接热点高亮** —— Ctrl+单击在浏览器中打开，Alt+单击在编辑器中加载
 
-## System Requirements
+### 用户界面
 
-- **OS:** Windows 8.1, 10, or 11
-- **Architectures:** x86 (Win32), x64, x64 with AVX2, ARM64
+- **高 DPI 感知**，配备高清工具栏图标
+- **深色模式**，配色可自定义
+- **可自定义状态栏**，提供 16 个可配置字段（行、列、编码、[TinyExpr++](readme/tinyexprcpp/TinyExprPP.md) 求值、Unicode 码位等）
+- **可自定义工具栏标签** —— 在图标旁显示功能名称
+- **缩放**范围 10% ～ 1000%（Ctrl+滚轮或工具栏按钮）
+- **窗口透明模式**，透明度可配置
 
-## Download & Install
+### 本地化
 
-| Channel | Link |
-|---------|------|
-| **Stable Release** | [rizonesoft.com/downloads/notepad3](https://rizonesoft.com/downloads/notepad3/) |
+提供 26 种语言翻译：
+
+> 南非荷兰语、白俄罗斯语、中文（简体 / 繁体）、荷兰语、英语（美国 / 英国）、芬兰语、法语、德语、希腊语、印地语、匈牙利语、印尼语、意大利语、日语、韩语、波兰语、葡萄牙语（巴西 / 葡萄牙）、俄语、斯洛伐克语、西班牙语、瑞典语、土耳其语、越南语
+
+### 配套工具
+
+- **[MiniPath](minipath/)** —— 快速文件浏览插件（Ctrl+M）
+- **[grepWin](grepWin/)** —— 强大的跨文件搜索与替换工具
+
+## 系统要求
+
+- **操作系统：** Windows 8.1 / 10 / 11
+- **架构：** x86 (Win32)、x64、x64 (AVX2)、ARM64
+
+## 下载与安装
+
+| 渠道 | 链接 |
+|------|------|
+| **稳定版** | [rizonesoft.com/downloads/notepad3](https://rizonesoft.com/downloads/notepad3/) |
 | **GitHub Releases** | [github.com/rizonesoft/Notepad3/releases](https://github.com/rizonesoft/Notepad3/releases) |
-| **Nightly Builds** | [Pre-releases on GitHub](https://github.com/rizonesoft/Notepad3/releases) |
+| **每日构建** | [GitHub 预发布版](https://github.com/rizonesoft/Notepad3/releases) |
 
-Notepad3 is fully **portable** — no installation required. Extract the archive and run `Notepad3.exe`. Settings are stored in `Notepad3.ini` alongside the executable. See [Replacing Windows Notepad](https://rizonesoft.com/documents/notepad3/) for system-wide integration.
+Notepad3 完全**便携**，无需安装：解压压缩包后直接运行 `Notepad3.exe` 即可。设置保存在与可执行文件同目录的 `Notepad3.ini` 中。系统集成（替换 Windows 记事本）的方法参见[官方文档](https://rizonesoft.com/documents/notepad3/)。
 
-## Building from Source
+## 从源码构建
 
-Notepad3 is built with **Visual Studio 2022** (toolset v143) targeting the Windows SDK.
+Notepad3 使用 **Visual Studio 2022**（工具集 v143）构建，目标平台为 Windows SDK。
 
 ```powershell
-# Restore NuGet packages (required once)
+# 还原 NuGet 包（首次构建时执行一次即可）
 nuget restore Notepad3.sln
 
-# Build a specific platform
+# 构建指定平台
 Build\Build_x64.cmd Release
 
-# Build all platforms (Win32, x64, x64_AVX2, ARM64)
+# 构建全部平台（Win32、x64、x64_AVX2、ARM64）
 Build\BuildAll.cmd Release
 
-# Or use MSBuild directly
+# 也可以直接使用 MSBuild
 msbuild Notepad3.sln /m /p:Configuration=Release /p:Platform=x64
 ```
 
-Run `Version.ps1` before building to generate version headers from templates in `Versions\`.
+构建前请先运行 `Version.ps1`，根据 `Versions\` 中的模板生成版本头文件。
 
-## Configuration
+## 配置
 
-Notepad3 uses a portable INI file for all settings. Press **Ctrl+F7** to open it directly in the editor.
+Notepad3 使用便携的 INI 文件保存全部设置。按 **Ctrl+F7** 可直接在编辑器中打开该文件。
 
-- **UI settings** (`[Settings]`) — managed through Menu → Settings
-- **Advanced settings** (`[Settings2]`) — edit manually; most require a restart
-- **Status bar** (`[Statusbar Settings]`) — customize field layout, order, and width
-- **Toolbar labels** (`[Toolbar Labels]`) — show function names next to icons
+- **界面设置**（`[Settings]`）—— 通过「菜单 → 设置」管理
+- **高级设置**（`[Settings2]`）—— 需手动编辑，多数设置重启后生效
+- **状态栏**（`[Statusbar Settings]`）—— 自定义字段的布局、顺序与宽度
+- **工具栏标签**（`[Toolbar Labels]`）—— 在图标旁显示功能名称
 
-📖 **Full configuration reference:** [readme/config/Configuration.md](readme/config/Configuration.md)
+📖 **完整配置参考：** [readme/config/Configuration.md](readme/config/Configuration.md)
 
-🎨 **Schemas, styles & themes:** [readme/schema/CustomSchema.md](readme/schema/CustomSchema.md) — the layered override model, the style mini-language, `View → Customize Schemes` (**F12**), and how to export / import / collect custom themes.
+🎨 **配色方案、样式与主题：** [readme/schema/CustomSchema.md](readme/schema/CustomSchema.md) —— 分层覆盖模型、样式迷你语言、`视图 → 自定义方案`（**F12**），以及自定义主题的导出 / 导入 / 收集方法。
 
-📄 **File content flags** (`.LOG`, Emacs file variables, encoding tags, shebang lexer hint): [readme/config/FileContentFlags.md](readme/config/FileContentFlags.md) — markers you can put inside a file to control how Notepad3 opens or styles it.
+📄 **文件内容标记**（`.LOG`、Emacs 文件变量、编码标签、shebang 词法提示）：[readme/config/FileContentFlags.md](readme/config/FileContentFlags.md) —— 写在文件内部、用于控制 Notepad3 打开或着色方式的标记。
 
-## Command-Line Options
+## 命令行选项
 
-Notepad3 accepts a rich set of command-line switches inherited from Notepad2 / Notepad2-mod, plus several Notepad3-specific extensions. All switches are case-insensitive and may be prefixed with either `/` or `-`.
+Notepad3 继承了 Notepad2 / Notepad2-mod 丰富的命令行开关，并增加了若干 Notepad3 专有扩展。所有开关不区分大小写，前缀可使用 `/` 或 `-`。
 
 ```bat
-Notepad3.exe /utf8sig /crlf d:\temp\Test.txt        :: Open as UTF-8 BOM + CRLF
-Notepad3.exe /g 250,5 src\Notepad3.c                :: Jump to line 250, column 5
-Notepad3.exe /m TODO main.c                         :: Open and find first "TODO"
-Notepad3.exe /b /i                                  :: Pasteboard mode, start in tray
-                                                     :: (hold Ctrl during the brief
-                                                     :: pre-minimize window to keep
-                                                     :: the editor visible)
-Notepad3.exe /v report.log                          :: Print silently and exit
-Notepad3.exe /?                                     :: Built-in help dialog
+Notepad3.exe /utf8sig /crlf d:\temp\Test.txt        :: 以 UTF-8 BOM + CRLF 打开
+Notepad3.exe /g 250,5 src\Notepad3.c                :: 跳转到第 250 行第 5 列
+Notepad3.exe /m TODO main.c                         :: 打开并查找第一个 "TODO"
+Notepad3.exe /b /i                                  :: 剪贴板收集模式，启动时驻留托盘
+                                                     :: （在最小化前的短暂窗口期内按住 Ctrl，
+                                                     ::  即可让编辑器保持可见）
+Notepad3.exe /v report.log                          :: 静默打印后退出
+Notepad3.exe /?                                     :: 打开内置帮助对话框
 ```
 
-Coverage at a glance:
+功能一览：
 
-- **File arguments & multi-file** — positional paths, `+`, `-`, `/y`, `/z`
-- **Encoding** — `/ansi`, `/unicode`, `/unicodebe`, `/utf8`, `/utf8sig`, `/e <name>`
-- **Line endings** — `/crlf`, `/cr`, `/lf`
-- **Navigation & search** — `/g`, `/m` with regex / case / backslash modifiers
-- **File watching** — `/l`, `/l0`, `/l1`
-- **New documents** — `/q`, `/qs`, `/c`
-- **Pasteboard / clipboard collector** — `/b` (with deferred-minimize and Ctrl-skip when combined with `/i`)
-- **Lexers** — `/s`, `/d`, `/h`, `/x`
-- **Window placement & behaviour** — `/p` (with presets), `/t`, `/i`, `/o`
-- **Window reuse / single-instance** — `/n`, `/ns`, `/r`, `/rs`, `/rp`
-- **Printing** — `/v`, `/vd`
-- **INI & elevation** — `/f`, `/f0`, `/u`
-- **Shell integration** — `appid=`, `sysmru=`
+- **文件参数与多文件** —— 位置路径、`+`、`-`、`/y`、`/z`
+- **编码** —— `/ansi`、`/unicode`、`/unicodebe`、`/utf8`、`/utf8sig`、`/e <名称>`
+- **换行符** —— `/crlf`、`/cr`、`/lf`
+- **定位与搜索** —— `/g`、`/m`，支持正则 / 大小写 / 反斜杠修饰符
+- **文件监视** —— `/l`、`/l0`、`/l1`
+- **新建文档** —— `/q`、`/qs`、`/c`
+- **剪贴板收集** —— `/b`（与 `/i` 组合时支持延迟最小化、按住 Ctrl 跳过）
+- **词法分析器** —— `/s`、`/d`、`/h`、`/x`
+- **窗口位置与行为** —— `/p`（含预设）、`/t`、`/i`、`/o`
+- **窗口复用 / 单实例** —— `/n`、`/ns`、`/r`、`/rs`、`/rp`
+- **打印** —— `/v`、`/vd`
+- **INI 与提权** —— `/f`、`/f0`、`/u`
+- **Shell 集成** —— `appid=`、`sysmru=`
 
-⌨️ **Full reference:** [readme/cmdln/CmdLnOptions.md](readme/cmdln/CmdLnOptions.md) — every switch with arguments, examples, persistence notes, and Notepad2/Notepad2-mod compatibility.
+⌨️ **完整参考：** [readme/cmdln/CmdLnOptions.md](readme/cmdln/CmdLnOptions.md) —— 每个开关的参数、示例、持久化说明，以及与 Notepad2 / Notepad2-mod 的兼容性。
 
-## Menus & Commands
+## 菜单与命令
 
-User-facing description of every entry in Notepad3's menus and context menus, structured to mirror the in-app menu tree. Covers File, Edit, Search, View, Appearance, Settings, Help, plus the four context (right-click) menus — with the keyboard shortcut, behaviour notes, and links into the relevant deep-dive docs for each command.
+按应用内菜单树的结构，逐项说明 Notepad3 菜单和右键菜单中的所有条目，涵盖「文件」「编辑」「搜索」「视图」「外观」「设置」「帮助」以及四个右键菜单；每一项都附有快捷键、行为说明和相关深度文档的链接。
 
-📋 **Menu reference:** [readme/MenuEntriesAndCmds.md](readme/MenuEntriesAndCmds.md)
+📋 **菜单参考：** [readme/MenuEntriesAndCmds.md](readme/MenuEntriesAndCmds.md)
 
-## File-Path Handling
+## 文件路径处理
 
-How Notepad3 turns clickable links, selected text, and path-shaped tokens into real files — including bare paths with line specs (`file.c:42`, `file.c(42)`), `file:///` URLs, relative-path anchor rules (current document's directory → working directory), environment-variable expansion, and the two new selection commands **Open Containing Folder of Selection** / **Open File from Selection**.
+说明 Notepad3 如何把可点击链接、选中文本和形似路径的字符串解析为真实文件 —— 包括带行号的裸路径（`file.c:42`、`file.c(42)`）、`file:///` URL、相对路径的锚定规则（当前文档目录 → 工作目录）、环境变量展开，以及两个新增的选区命令「打开所选内容所在文件夹」/「从所选内容打开文件」。
 
-🗂️ **File-path reference:** [readme/paths/FilePathHandling.md](readme/paths/FilePathHandling.md)
+🗂️ **路径处理参考：** [readme/paths/FilePathHandling.md](readme/paths/FilePathHandling.md)
 
-## Keyboard Shortcuts
+## 键盘快捷键
 
-Every key combination Notepad3 understands — file, editing, view, search, customization — grouped by menu, with Notepad2 → Notepad3 reassignments flagged.
+Notepad3 支持的全部组合键 —— 文件、编辑、视图、搜索、自定义 —— 按菜单分组，并标注由 Notepad2 迁移到 Notepad3 时的按键调整。
 
-⌨️ **Notepad3 shortcuts:** [readme/KeyboardShortcuts.md](readme/KeyboardShortcuts.md)
-🗂️ **MiniPath shortcuts:** [readme/minipath/KeyboardShortcuts.md](readme/minipath/KeyboardShortcuts.md)
+⌨️ **Notepad3 快捷键：** [readme/KeyboardShortcuts.md](readme/KeyboardShortcuts.md)
+🗂️ **MiniPath 快捷键：** [readme/minipath/KeyboardShortcuts.md](readme/minipath/KeyboardShortcuts.md)
 
-## FAQ
+## 常见问题
 
-Common questions inherited from Notepad2 / Notepad2-mod, updated for Notepad3 — installation, portable settings, regex (PCRE2), encoding, file change notification, `.LOG` and Emacs file variables, replacing Windows Notepad, and more.
+继承自 Notepad2 / Notepad2-mod 的常见问答，并针对 Notepad3 做了更新 —— 安装、便携设置、正则（PCRE2）、编码、文件变更通知、`.LOG` 与 Emacs 文件变量、替换 Windows 记事本等。
 
-❓ **Frequently Asked Questions:** [readme/faq/FAQ.md](readme/faq/FAQ.md)
+❓ **常见问题：** [readme/faq/FAQ.md](readme/faq/FAQ.md)
 
-## Contributing
+## 参与贡献
 
-Contributions are welcome! Here's how to help:
+欢迎参与贡献，可以通过以下方式帮忙：
 
-1. **Report bugs** — [Open an issue](https://github.com/rizonesoft/Notepad3/issues) with steps to reproduce
-2. **Submit pull requests** — Fork the repo, create a feature branch, and submit a PR against `master`
-3. **Translate** — Add or improve translations in the `language\` directory
-4. **Spread the word** — Star the repo and share with others
+1. **报告问题** —— [提交 Issue](https://github.com/rizonesoft/Notepad3/issues)，并附上复现步骤
+2. **提交 Pull Request** —— Fork 仓库、创建功能分支，然后向 `master` 提交 PR
+3. **参与翻译** —— 在 `language\` 目录中添加或改进翻译
+4. **推广项目** —— 给仓库点 Star 并分享给他人
 
-For support, visit [rizonesoft.com/contact-us](https://rizonesoft.com/contact-us).
+需要支持请访问 [rizonesoft.com/contact-us](https://rizonesoft.com/contact-us)。
 
-## Credits
+## 致谢
 
-Notepad3 builds upon the work of:
+Notepad3 建立在以下项目的工作之上：
 
-| Project | Author | Role |
-|---------|--------|------|
-| [Notepad2](https://www.flos-freeware.ch/notepad2.html) | Florian Balmer | Original editor |
-| [Notepad2-mod](https://xhmikosr.github.io/notepad2-mod/) | XhmikosR | Extended fork |
-| [Scintilla](https://www.scintilla.org/) 5.5.8 | Neil Hodgson | Editing component |
-| [Lexilla](https://www.scintilla.org/Lexilla.html) 5.4.6 | Neil Hodgson | Syntax highlighting |
-| [PCRE2](https://github.com/PCRE2Project/pcre2) 10.47 | PCRE2 Project | Regex engine |
-| [TinyExpr++](https://blake-madden.github.io/tinyexpr-plusplus/) | Blake Madden | Expression evaluator |
-| [uchardet](https://www.freedesktop.org/wiki/Software/uchardet/) | Mozilla / freedesktop | Encoding detection |
-| Fugue Icons | Yusuke Kamiyamane | Toolbar icons |
+| 项目 | 作者 | 作用 |
+|------|------|------|
+| [Notepad2](https://www.flos-freeware.ch/notepad2.html) | Florian Balmer | 原始编辑器 |
+| [Notepad2-mod](https://xhmikosr.github.io/notepad2-mod/) | XhmikosR | 扩展分支 |
+| [Scintilla](https://www.scintilla.org/) 5.5.8 | Neil Hodgson | 编辑组件 |
+| [Lexilla](https://www.scintilla.org/Lexilla.html) 5.4.6 | Neil Hodgson | 语法高亮 |
+| [PCRE2](https://github.com/PCRE2Project/pcre2) 10.47 | PCRE2 Project | 正则引擎 |
+| [TinyExpr++](https://blake-madden.github.io/tinyexpr-plusplus/) | Blake Madden | 表达式求值 |
+| [uchardet](https://www.freedesktop.org/wiki/Software/uchardet/) | Mozilla / freedesktop | 编码检测 |
+| Fugue Icons | Yusuke Kamiyamane | 工具栏图标 |
 
-## Reviews
+## 评测
 
-- [Notepad3 is an advanced text editor that supports many programming languages](https://www.ghacks.net/2020/08/11/notepad3-is-an-advanced-text-editor-that-supports-many-programming-languages/) — gHacks
-- [Notepad3 review on Nsane Forums](https://www.nsaneforums.com/topic/382910-guidereview-notepad3-is-an-advanced-text-editor-that-supports-many-programming-languages/) — Nsane Forums
+- [Notepad3 是一款支持多种编程语言的高级文本编辑器](https://www.ghacks.net/2020/08/11/notepad3-is-an-advanced-text-editor-that-supports-many-programming-languages/) —— gHacks
+- [Nsane Forums 上的 Notepad3 评测](https://www.nsaneforums.com/topic/382910-guidereview-notepad3-is-an-advanced-text-editor-that-supports-many-programming-languages/) —— Nsane Forums
 
-## License
+## 许可证
 
-Notepad3 is licensed under the [BSD 3-Clause License](License.txt).
+Notepad3 采用 [BSD 3-Clause 许可证](Build/Docs/License.txt)。
 
-Copyright © 2008–2026 [Rizonesoft](https://rizonesoft.com). All rights reserved.
+Copyright © 2008–2026 [Rizonesoft](https://rizonesoft.com)。保留所有权利。
 
 ---
 
