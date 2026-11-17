@@ -6208,20 +6208,9 @@ static bool _HandleEditBasicCommands(HWND hwnd, UINT umsg, WPARAM wParam, LPARAM
     break;
 
 
-    case IDM_EDIT_SELECTALLMATCHES: {
-        if (!Sci_IsMultiOrRectangleSelection()) {
-            if (IsWindow(Globals.hwndDlgFindReplace)) {
-                SetFindReplaceData(); // s_FindReplaceData
-                EditSelectionMultiSelectAllEx(Globals.hwndEdit, &s_FindReplaceData);
-            } else {
-                if (SciCall_IsSelectionEmpty()) {
-                    EditSelectWordAtPos(SciCall_GetCurrentPos(), false);
-                }
-                EditSelectionMultiSelectAll();
-            }
-        }
-    }
-    break;
+    case IDM_EDIT_SELECTALLMATCHES:
+        EditSelectionMultiSelectAll();
+        break;
 
 
     case IDM_EDIT_SELECTNEXTMATCH:

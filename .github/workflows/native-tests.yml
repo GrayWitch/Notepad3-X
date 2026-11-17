@@ -6,6 +6,9 @@ on:
     paths:
       - 'src/Encoding.c'
       - 'src/Encoding.h'
+      - 'src/Edit.c'
+      - 'src/SciCall.h'
+      - 'scintilla/**'
       - 'src/uchardet/EncodingDetection.cpp'
       - 'src/Dialogs.c'
       - 'src/PathLib.c'
@@ -16,12 +19,16 @@ on:
       - 'test/test_files/encoding/UTF-16/**'
       - 'test/TestOpenDialogDirectory.*'
       - 'test/TestCreateDirectory.*'
+      - 'test/TestMultiSelection.*'
       - '.github/workflows/native-tests.yml'
   pull_request:
     branches: [master]
     paths:
       - 'src/Encoding.c'
       - 'src/Encoding.h'
+      - 'src/Edit.c'
+      - 'src/SciCall.h'
+      - 'scintilla/**'
       - 'src/uchardet/EncodingDetection.cpp'
       - 'src/Dialogs.c'
       - 'src/PathLib.c'
@@ -32,6 +39,7 @@ on:
       - 'test/test_files/encoding/UTF-16/**'
       - 'test/TestOpenDialogDirectory.*'
       - 'test/TestCreateDirectory.*'
+      - 'test/TestMultiSelection.*'
       - '.github/workflows/native-tests.yml'
   workflow_dispatch:
 
@@ -57,3 +65,7 @@ jobs:
       - name: Create-directory regression
         shell: pwsh
         run: pwsh -NoProfile -File test\TestCreateDirectory.ps1
+
+      - name: Multi-selection regression
+        shell: pwsh
+        run: pwsh -NoProfile -File test\TestMultiSelection.ps1

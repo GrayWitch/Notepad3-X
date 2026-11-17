@@ -6743,6 +6743,18 @@ static void  _DelayMarkAll(int delay)
 static bool s_SaveMarkOccurrences = false;
 static bool s_SaveMarkMatchVisible = false;
 
+// Preserve the find conditions across WM_DESTROY before selecting the matches.
+static void _EditSelectAllFromFind(HWND hwndDlg)
+{
+    EDITFINDREPLACE efr = INIT_EFR_DATA;
+    DuplicateEFR(&efr, &Settings.EFR_Data);
+    _SetSearchFlags(hwndDlg, &efr);
+    SendMessage(hwndDlg, WM_COMMAND, MAKEWPARAM(IDCANCEL, BN_CLICKED), 0);
+    EditSelectionMultiSelectAllEx(Globals.hwndEdit, &efr);
+    ReleaseEFR(&efr);
+}
+
+
 //=============================================================================
 //
 //  EditBoxForPasteFixes()
@@ -6775,8 +6787,7 @@ static LRESULT CALLBACK EditBoxForPasteFixes(HWND hwnd, UINT uMsg, WPARAM wParam
 
             if (bAlt && !bShift && !bCtrl) {
                 // VSCode Alt+Enter: Select all occurrences and close find dialog to edit
-                PostMessage(hwndDlg, WM_COMMAND, MAKEWPARAM(IDCANCEL, BN_CLICKED), 0);
-                PostMessage(Globals.hwndMain, WM_COMMAND, MAKEWPARAM(IDM_EDIT_SELECTALLMATCHES, 0), 0);
+                _EditSelectAllFromFind(hwndDlg);
                 return 0;
             }
             if (bCtrl && bAlt) {
@@ -6841,8 +6852,7 @@ static LRESULT CALLBACK EditBoxForPasteFixes(HWND hwnd, UINT uMsg, WPARAM wParam
             }
         } else if (wParam == VK_RETURN) {
             // Alt+Enter
-            PostMessage(hwndDlg, WM_COMMAND, MAKEWPARAM(IDCANCEL, BN_CLICKED), 0);
-            PostMessage(Globals.hwndMain, WM_COMMAND, MAKEWPARAM(IDM_EDIT_SELECTALLMATCHES, 0), 0);
+            _EditSelectAllFromFind(hwndDlg);
             return 0;
         }
     } break;
@@ -8166,80 +8176,184 @@ void EditMarkAllOccurrences(HWND hwnd, bool bForceClear)
 }
 
 
+// Select a word at every empty caret without replacing the selection collection.
+static void _EditSelectionExpandCarets()
+{
+    DocPosU const count = SciCall_GetSelections();
+    for (DocPosU i = 0; i < count; ++i) {
+        DocPos const pos = SciCall_GetSelectionNCaret(i);
+        DocPos start = SciCall_WordStartPosition(pos, true);
+        DocPos end = SciCall_WordEndPosition(pos, true);
+        if (start == end) {
+            start = SciCall_WordEndPosition(pos, false);
+            end = SciCall_WordEndPosition(start, true);
+        }
+        if (end > start) {
+            SciCall_SetSelectionNAnchor(i, start);
+            SciCall_SetSelectionNCaret(i, end);
+            SciCall_SetSelectionNAnchorVirtualSpace(i, 0);
+            SciCall_SetSelectionNCaretVirtualSpace(i, 0);
+        }
+    }
+    // Several carets can expand to the same word. Keep a single editable range.
+    for (DocPosU i = count; i-- > 0;) {
+        for (DocPosU j = 0; j < i; ++j) {
+            if (SciCall_GetSelectionNStart(i) == SciCall_GetSelectionNStart(j) &&
+                SciCall_GetSelectionNEnd(i) == SciCall_GetSelectionNEnd(j)) {
+                if (SciCall_GetMainSelection() == i) {
+                    SciCall_SetMainSelection(j);
+                }
+                SciCall_DropSelectionN((int)i);
+                break;
+            }
+        }
+    }
+    Sci_ScrollSelectionToView();
+    SciCall_ChooseCaretX();
+}
+
+
+// Use the live find pattern when available. Otherwise search the main selection
+// literally, retaining the find dialog's case and word-boundary options.
+static char* _EditSelectionMatchText(DocPos* textLen, int* searchFlags)
+{
+    EDITFINDREPLACE efr = INIT_EFR_DATA;
+    DuplicateEFR(&efr, &Settings.EFR_Data);
+    bool const findOpen = IsWindow(Globals.hwndDlgFindReplace);
+    if (findOpen) {
+        _SetSearchFlags(Globals.hwndDlgFindReplace, &efr);
+    }
+    *searchFlags = efr.fuFlags & (SCFIND_MATCHCASE | SCFIND_WHOLEWORD | SCFIND_WORDSTART);
+    char* text = NULL;
+    if (findOpen && StrgIsNotEmpty(efr.chFindPattern)) {
+        LPCWSTR const pattern = _EditGetFindStrg(Globals.hwndEdit, &efr, false);
+        *searchFlags = efr.fuFlags;
+        int const size = WideCharToMultiByte(Encoding_SciCP, 0, pattern, -1, NULL, 0, NULL, NULL);
+        if (size > 1) {
+            text = (char*)AllocMem(size, HEAP_ZERO_MEMORY);
+            if (text) {
+                WideCharToMultiByte(Encoding_SciCP, 0, pattern, -1, text, size, NULL, NULL);
+                *textLen = size - 1;
+            }
+        }
+    } else {
+        DocPosU const main = SciCall_GetMainSelection();
+        DocPos const start = SciCall_GetSelectionNStart(main);
+        *textLen = SciCall_GetSelectionNEnd(main) - start;
+        if (*textLen > 0) {
+            text = (char*)AllocMem(*textLen + 1, HEAP_ZERO_MEMORY);
+            if (text) {
+                struct Sci_TextRangeFull tr;
+                tr.chrg.cpMin = (DocPosCR)start;
+                tr.chrg.cpMax = (DocPosCR)(start + *textLen);
+                tr.lpstrText = text;
+                SciCall_GetTextRangeFull(&tr);
+            }
+        }
+    }
+    ReleaseEFR(&efr);
+    return text;
+}
+
+
+// Search from the main selection, wrapping once and ignoring existing ranges.
+// Keep selections intact until a replacement for a skipped match is found.
+static bool _EditSelectionFindNext(const char* text, DocPos textLen, int searchFlags,
+                                   DocPos searchStart, DocPos* foundStart, DocPos* foundEnd)
+{
+    DocPos const savedStart = SciCall_GetTargetStart();
+    DocPos const savedEnd = SciCall_GetTargetEnd();
+    int const savedFlags = SciCall_GetSearchFlags();
+    SciCall_SetSearchFlags(searchFlags);
+    DocPos const docLen = Sci_GetDocEndPosition();
+    DocPosU const count = SciCall_GetSelections();
+    bool found = false;
+    for (int pass = 0; pass < 2 && !found; ++pass) {
+        DocPos begin = pass ? 0 : searchStart;
+        DocPos const limit = pass ? searchStart : docLen;
+        while (begin <= limit) {
+            SciCall_SetTargetRange(begin, limit);
+            if (SciCall_SearchInTarget(textLen, text) < 0) {
+                break;
+            }
+            DocPos const start = SciCall_GetTargetStart();
+            DocPos const end = SciCall_GetTargetEnd();
+            bool selected = false;
+            for (DocPosU i = 0; i < count; ++i) {
+                DocPos const selStart = SciCall_GetSelectionNStart(i);
+                DocPos const selEnd = SciCall_GetSelectionNEnd(i);
+                if ((start < selEnd && end > selStart) ||
+                    (start == selStart && end == selEnd)) {
+                    selected = true;
+                    break;
+                }
+            }
+            if (!selected) {
+                *foundStart = start;
+                *foundEnd = end;
+                found = true;
+                break;
+            }
+            DocPos const next = (end > start) ? end : SciCall_PositionAfter(end);
+            if (next <= begin || (start == end && next <= end)) {
+                break;
+            }
+            begin = next;
+        }
+    }
+    SciCall_SetTargetRange(savedStart, savedEnd);
+    SciCall_SetSearchFlags(savedFlags);
+    return found;
+}
+
+
 //=============================================================================
 //
 //  EditSelectionMultiSelectAll()
 //
 void EditSelectionMultiSelectAll()
 {
-    if (SciCall_IsSelectionEmpty()) {
-        DocPos const curPos = SciCall_GetCurrentPos();
-        DocPos const wordStart = SciCall_WordStartPosition(curPos, true);
-        DocPos const wordEnd = SciCall_WordEndPosition(curPos, true);
-        if (wordEnd > wordStart) {
-            SciCall_SetSelection(wordEnd, wordStart);
-        } else {
-            EditSelectWordAtPos(curPos, true);
-        }
-        if (SciCall_IsSelectionEmpty()) {
-            return;
-        }
+    DocPos textLen = 0;
+    int searchFlags = 0;
+    char* text = _EditSelectionMatchText(&textLen, &searchFlags);
+    if (!text && SciCall_IsSelectionEmpty()) {
+        _EditSelectionExpandCarets();
+        text = _EditSelectionMatchText(&textLen, &searchFlags);
     }
-
-    DocPos const sStart = SciCall_GetSelectionNStart(0);
-    DocPos const sEnd = SciCall_GetSelectionNEnd(0);
-    DocPos const textLen = sEnd - sStart;
-    if (textLen <= 0) {
-        return;
-    }
-
-    char* const text = (char*)AllocMem(textLen + 1, HEAP_ZERO_MEMORY);
     if (!text) {
         return;
     }
-
-    struct Sci_TextRangeFull tr;
-    tr.chrg.cpMin = (DocPosCR)sStart;
-    tr.chrg.cpMax = (DocPosCR)sEnd;
-    tr.lpstrText = text;
-    SciCall_GetTextRangeFull(&tr);
-
-    int searchFlags = SCFIND_MATCHCASE;
-    DocPos const wStart = SciCall_WordStartPosition(sStart, true);
-    DocPos const wEnd = SciCall_WordEndPosition(sStart, true);
-    if (wStart == sStart && wEnd == sEnd) {
-        searchFlags |= SCFIND_WHOLEWORD;
-    }
+    DocPos const savedStart = SciCall_GetTargetStart();
+    DocPos const savedEnd = SciCall_GetTargetEnd();
+    int const savedFlags = SciCall_GetSearchFlags();
     SciCall_SetSearchFlags(searchFlags);
-
     DocPos const docLen = Sci_GetDocEndPosition();
-    DocPos rangeBegin = 0;
-    bool isFirst = true;
-
-    while (rangeBegin < docLen) {
-        SciCall_SetTargetRange(rangeBegin, docLen);
+    DocPos begin = 0;
+    bool first = true;
+    while (begin <= docLen) {
+        SciCall_SetTargetRange(begin, docLen);
         if (SciCall_SearchInTarget(textLen, text) < 0) {
             break;
         }
-
-        DocPos const matchStart = SciCall_GetTargetStart();
-        DocPos const matchEnd = SciCall_GetTargetEnd();
-        if (matchEnd <= matchStart) {
+        DocPos const start = SciCall_GetTargetStart();
+        DocPos const end = SciCall_GetTargetEnd();
+        if (first) {
+            SciCall_SetSelection(end, start);
+            first = false;
+        } else {
+            SciCall_AddSelection(end, start);
+        }
+        DocPos const next = (end > start) ? end : SciCall_PositionAfter(end);
+        if (next <= begin || (start == end && next <= end)) {
             break;
         }
-
-        if (isFirst) {
-            SciCall_SetSelection(matchEnd, matchStart);
-            isFirst = false;
-        } else {
-            SciCall_AddSelection(matchEnd, matchStart);
-        }
-
-        rangeBegin = matchEnd;
+        begin = next;
     }
-
+    SciCall_SetTargetRange(savedStart, savedEnd);
+    SciCall_SetSearchFlags(savedFlags);
     FreeMem(text);
     Sci_ScrollSelectionToView();
+    SciCall_ChooseCaretX();
 }
 
 
@@ -8254,8 +8368,6 @@ void EditSelectionMultiSelectAllEx(HWND hwnd, CLPCEDITFINDREPLACE edFndRpl)
 
     if (IsWindow(Globals.hwndDlgFindReplace)) {
         _SetSearchFlags(Globals.hwndDlgFindReplace, &efr);
-    } else {
-        efr.fuFlags = GetMarkAllOccSearchFlags();
     }
 
     LPCWSTR wchFind = _EditGetFindStrg(hwnd, &efr, false);
@@ -8272,221 +8384,59 @@ void EditSelectionMultiSelectAllEx(HWND hwnd, CLPCEDITFINDREPLACE edFndRpl)
 //=============================================================================
 //
 //  EditSelectionMultiSelectNext()
-//  VSCode style Ctrl+D: select next occurrence of selected text and add to multi-selection.
-//  If selection is empty, select word at caret.
+//  Ctrl+D expands every empty caret, then adds the next matching selection.
 //
 void EditSelectionMultiSelectNext()
 {
-    if (SciCall_IsSelectionEmpty()) {
-        DocPos const curPos = SciCall_GetCurrentPos();
-        DocPos const wordStart = SciCall_WordStartPosition(curPos, true);
-        DocPos const wordEnd = SciCall_WordEndPosition(curPos, true);
-        if (wordEnd > wordStart) {
-            SciCall_SetSelection(wordEnd, wordStart);
-        } else {
-            EditSelectWordAtPos(curPos, true);
-        }
-        Sci_ScrollSelectionToView();
-        SciCall_ChooseCaretX();
-        InvalidateRect(Globals.hwndEdit, NULL, FALSE);
-        UpdateWindow(Globals.hwndEdit);
-        return;
-    }
-
-    DocPosU const numSelections = SciCall_GetSelections();
-    if (numSelections == 0) {
-        return;
-    }
-
-    // Get the selection text strictly from the 0-th selection (NOT GetSelText which joins all selections)
-    DocPos const sStart = SciCall_GetSelectionNStart(0);
-    DocPos const sEnd = SciCall_GetSelectionNEnd(0);
-    DocPos const textLen = sEnd - sStart;
-    if (textLen <= 0) {
-        return;
-    }
-
-    char* const text = (char*)AllocMem(textLen + 1, HEAP_ZERO_MEMORY);
+    DocPos textLen = 0;
+    int searchFlags = 0;
+    char* const text = _EditSelectionMatchText(&textLen, &searchFlags);
     if (!text) {
+        if (SciCall_IsSelectionEmpty()) {
+            _EditSelectionExpandCarets();
+        }
         return;
     }
-
-    struct Sci_TextRangeFull tr;
-    tr.chrg.cpMin = (DocPosCR)sStart;
-    tr.chrg.cpMax = (DocPosCR)sEnd;
-    tr.lpstrText = text;
-    SciCall_GetTextRangeFull(&tr);
-
-    // Search flags: case sensitive
-    int const searchFlags = SCFIND_MATCHCASE;
-    SciCall_SetSearchFlags(searchFlags);
-
-    // Find the furthest end position of all current selections to search forward from
-    DocPos searchStart = 0;
-    for (DocPosU i = 0; i < numSelections; ++i) {
-        DocPos const endPos = SciCall_GetSelectionNEnd(i);
-        if (endPos > searchStart) {
-            searchStart = endPos;
-        }
-    }
-
-    DocPos const docLen = Sci_GetDocEndPosition();
-    DocPos foundStart = -1;
-    DocPos foundEnd = -1;
-
-    // Pass 0: from searchStart to docLen
-    // Pass 1: wrap around from 0 to searchStart
-    for (int pass = 0; pass < 2 && foundStart < 0; ++pass) {
-        DocPos rangeBegin = (pass == 0) ? searchStart : 0;
-        DocPos const rangeLimit = (pass == 0) ? docLen : searchStart;
-
-        while (rangeBegin < rangeLimit) {
-            SciCall_SetTargetRange(rangeBegin, rangeLimit);
-            DocPos const pos = SciCall_SearchInTarget(textLen, text);
-            if (pos < 0) {
-                break;
-            }
-
-            DocPos const matchStart = SciCall_GetTargetStart();
-            DocPos const matchEnd = SciCall_GetTargetEnd();
-            if (matchEnd <= matchStart) {
-                break;
-            }
-
-            // Check if this match [matchStart, matchEnd] overlaps with any existing selection
-            bool alreadySelected = false;
-            for (DocPosU i = 0; i < numSelections; ++i) {
-                DocPos const curS = SciCall_GetSelectionNStart(i);
-                DocPos const curE = SciCall_GetSelectionNEnd(i);
-                if ((matchStart >= curS && matchStart < curE) ||
-                    (matchEnd > curS && matchEnd <= curE) ||
-                    (matchStart <= curS && matchEnd >= curE)) {
-                    alreadySelected = true;
-                    break;
-                }
-            }
-
-            if (!alreadySelected) {
-                foundStart = matchStart;
-                foundEnd = matchEnd;
-                break;
-            }
-
-            rangeBegin = matchEnd;
-        }
-    }
-
-    FreeMem(text);
-
-    if (foundStart >= 0) {
-        SciCall_AddSelection(foundEnd, foundStart);
+    DocPos const searchStart = SciCall_GetSelectionNEnd(SciCall_GetMainSelection());
+    DocPos start = 0;
+    DocPos end = 0;
+    if (_EditSelectionFindNext(text, textLen, searchFlags, searchStart, &start, &end)) {
+        SciCall_AddSelection(end, start);
         Sci_ScrollSelectionToView();
         SciCall_ChooseCaretX();
-        InvalidateRect(Globals.hwndEdit, NULL, FALSE);
-        UpdateWindow(Globals.hwndEdit);
     }
+    FreeMem(text);
 }
 
 
 //=============================================================================
 //
 //  EditSelectionMultiSelectSkip()
-//  VSCode style Ctrl+K Ctrl+D: skip current match and select next occurrence.
+//  Ctrl+K Ctrl+D moves the main selection to the next available match.
 //
 void EditSelectionMultiSelectSkip()
 {
-    DocPosU const numSelections = SciCall_GetSelections();
-    if (numSelections == 0 || SciCall_IsSelectionEmpty()) {
-        return;
-    }
-
-    // Get text from the first selection
-    DocPos const sStart = SciCall_GetSelectionNStart(0);
-    DocPos const sEnd = SciCall_GetSelectionNEnd(0);
-    DocPos const textLen = sEnd - sStart;
-    if (textLen <= 0) {
-        return;
-    }
-
-    char* const text = (char*)AllocMem(textLen + 1, HEAP_ZERO_MEMORY);
+    DocPos textLen = 0;
+    int searchFlags = 0;
+    char* const text = _EditSelectionMatchText(&textLen, &searchFlags);
     if (!text) {
         return;
     }
-
-    struct Sci_TextRangeFull tr;
-    tr.chrg.cpMin = (DocPosCR)sStart;
-    tr.chrg.cpMax = (DocPosCR)sEnd;
-    tr.lpstrText = text;
-    SciCall_GetTextRangeFull(&tr);
-
-    int const searchFlags = SCFIND_MATCHCASE;
-    SciCall_SetSearchFlags(searchFlags);
-
-    DocPos dropEnd = 0;
-    if (numSelections == 1) {
-        dropEnd = sEnd;
-    } else {
-        DocPosU const mainSel = SciCall_GetMainSelection();
-        dropEnd = SciCall_GetSelectionNEnd(mainSel);
-        SciCall_DropSelectionN((int)mainSel);
-    }
-
-    DocPosU const curNumSelections = SciCall_GetSelections();
-    DocPos const docLen = Sci_GetDocEndPosition();
-    DocPos foundStart = -1;
-    DocPos foundEnd = -1;
-
-    for (int pass = 0; pass < 2 && foundStart < 0; ++pass) {
-        DocPos rangeBegin = (pass == 0) ? dropEnd : 0;
-        DocPos const rangeLimit = (pass == 0) ? docLen : dropEnd;
-
-        while (rangeBegin < rangeLimit) {
-            SciCall_SetTargetRange(rangeBegin, rangeLimit);
-            if (SciCall_SearchInTarget(textLen, text) < 0) {
-                break;
-            }
-
-            DocPos const matchStart = SciCall_GetTargetStart();
-            DocPos const matchEnd = SciCall_GetTargetEnd();
-            if (matchEnd <= matchStart) {
-                break;
-            }
-
-            bool alreadySelected = false;
-            for (DocPosU i = 0; i < curNumSelections; ++i) {
-                DocPos const curS = SciCall_GetSelectionNStart(i);
-                DocPos const curE = SciCall_GetSelectionNEnd(i);
-                if ((matchStart >= curS && matchStart < curE) ||
-                    (matchEnd > curS && matchEnd <= curE) ||
-                    (matchStart <= curS && matchEnd >= curE)) {
-                    alreadySelected = true;
-                    break;
-                }
-            }
-
-            if (!alreadySelected) {
-                foundStart = matchStart;
-                foundEnd = matchEnd;
-                break;
-            }
-
-            rangeBegin = matchEnd;
-        }
-    }
-
-    FreeMem(text);
-
-    if (foundStart >= 0) {
-        if (numSelections == 1) {
-            SciCall_SetSelection(foundEnd, foundStart);
+    DocPosU const main = SciCall_GetMainSelection();
+    DocPos const searchStart = SciCall_GetSelectionNEnd(main);
+    DocPos start = 0;
+    DocPos end = 0;
+    if (_EditSelectionFindNext(text, textLen, searchFlags, searchStart, &start, &end)) {
+        if (SciCall_GetSelections() == 1) {
+            SciCall_SetSelection(end, start);
         } else {
-            SciCall_AddSelection(foundEnd, foundStart);
+            SciCall_DropSelectionN((int)main);
+            SciCall_AddSelection(end, start);
         }
         Sci_ScrollSelectionToView();
         SciCall_ChooseCaretX();
-        InvalidateRect(Globals.hwndEdit, NULL, FALSE);
-        UpdateWindow(Globals.hwndEdit);
     }
+    FreeMem(text);
 }
 
 
