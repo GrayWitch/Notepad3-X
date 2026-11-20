@@ -366,6 +366,7 @@ static void _PruneOldDropSnapshots(DWORD maxAgeSecs);
 static bool _IsDropSnapshotPath(const HPATHL hpth);
 static void _RegisterDropSnapshot(const HPATHL hpth);
 static void _CleanupDropSnapshots(bool dropAll);
+static void _DestroyMarkdownPreview(HWND hwnd);
 typedef struct _topmost_wnd_t {
     LPCWSTR pszAppID;
     HWND    hwnd;
@@ -2598,9 +2599,7 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT umsg, WPARAM wParam, LPARAM lParam)
 
     case WM_DESTROY:
         if (Globals.hwndMarkdownPreview) {
-            KillTimer(hwnd, ID_MARKDOWNPREVIEWTIMER);
-            DestroyWindow(Globals.hwndMarkdownPreview);
-            Globals.hwndMarkdownPreview = NULL;
+            _DestroyMarkdownPreview(hwnd);
         }
         if (Globals.hMarkdownRichEdit) {
             FreeLibrary(Globals.hMarkdownRichEdit);
@@ -3298,16 +3297,135 @@ static void _RelayoutMarkdownPreview(HWND hwnd)
     MsgSize(hwnd, SIZE_RESTORED, MAKELPARAM(rect.right, rect.bottom));
 }
 
-static void _CloseMarkdownPreview(HWND hwnd)
+static void _DestroyMarkdownPreview(HWND hwnd)
 {
+    HWND const splitter = Globals.hwndMarkdownSplitter;
     HWND const preview = Globals.hwndMarkdownPreview;
-    KillTimer(hwnd, ID_MARKDOWNPREVIEWTIMER);
+    Globals.hwndMarkdownSplitter = NULL;
     Globals.hwndMarkdownPreview = NULL;
-    if (GetFocus() == preview) {
-        SetFocus(Globals.hwndEdit);
+    KillTimer(hwnd, ID_MARKDOWNPREVIEWTIMER);
+    if (splitter) {
+        DestroyWindow(splitter);
     }
     DestroyWindow(preview);
+}
+
+static void _CloseMarkdownPreview(HWND hwnd)
+{
+    if (GetFocus() == Globals.hwndMarkdownPreview) {
+        SetFocus(Globals.hwndEdit);
+    }
+    _DestroyMarkdownPreview(hwnd);
     _RelayoutMarkdownPreview(hwnd);
+}
+
+static int _MarkdownSplitterWidth(HWND hwnd, int clientWidth)
+{
+    return min_i(clientWidth, ScaleIntByDPI(8, Scintilla_GetWindowDPI(hwnd)));
+}
+
+static int _MarkdownEditorWidth(HWND hwnd, int available, int requested)
+{
+    int const minimum = min_i(available / 3, ScaleIntByDPI(160, Scintilla_GetWindowDPI(hwnd)));
+    return clampi(requested, minimum, available - minimum);
+}
+
+static int _MarkdownSplitAt(HWND hwnd, int available)
+{
+    int const ratio = Globals.iMarkdownSplitRatio ? Globals.iMarkdownSplitRatio : 500;
+    return _MarkdownEditorWidth(hwnd, available, MulDiv(available, ratio, 1000));
+}
+
+static LRESULT CALLBACK _MarkdownSplitterProc(HWND splitter, UINT msg, WPARAM wParam, LPARAM lParam,
+                                               UINT_PTR subclass, DWORD_PTR data)
+{
+    UNREFERENCED_PARAMETER(subclass);
+    UNREFERENCED_PARAMETER(data);
+    HWND const parent = GetParent(splitter);
+
+    switch (msg) {
+    case WM_SETCURSOR:
+        SetCursor(LoadCursor(NULL, IDC_SIZEWE));
+        return TRUE;
+
+    case WM_ERASEBKGND:
+        return TRUE;
+
+    case WM_PAINT: {
+        PAINTSTRUCT ps;
+        HDC const dc = BeginPaint(splitter, &ps);
+        RECT rc;
+        GetClientRect(splitter, &rc);
+        bool const dark = UseDarkMode();
+        HBRUSH const brush = GetStockObject(DC_BRUSH);
+        SetDCBrushColor(dc, dark ? RGB(32, 35, 40) : GetSysColor(COLOR_WINDOW));
+        FillRect(dc, &rc, brush);
+        rc.left = rc.right / 2;
+        rc.right = rc.left + 1;
+        SetDCBrushColor(dc, GetCapture() == splitter ? GetSysColor(COLOR_HIGHLIGHT) :
+                        (dark ? RGB(62, 66, 73) : RGB(208, 214, 221)));
+        FillRect(dc, &rc, brush);
+        EndPaint(splitter, &ps);
+        return 0;
+    }
+
+    case WM_LBUTTONDOWN:
+        SetCapture(splitter);
+        InvalidateRect(splitter, NULL, FALSE);
+        return 0;
+
+    case WM_MOUSEMOVE:
+        if (GetCapture() == splitter) {
+            RECT rc;
+            GetClientRect(parent, &rc);
+            int const width = _MarkdownSplitterWidth(parent, rc.right);
+            POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+            MapWindowPoints(splitter, parent, &pt, 1);
+            int const x = _MarkdownEditorWidth(parent, rc.right - width, pt.x - width / 2);
+            // Move only the indicator. Resizing Scintilla for each mouse move can
+            // allocate DirectWrite surfaces; reflow the panes once on release.
+            SetWindowPos(splitter, HWND_TOP, x, pt.y - GET_Y_LPARAM(lParam), 0, 0, SWP_NOSIZE | SWP_NOACTIVATE);
+        }
+        return 0;
+
+    case WM_LBUTTONUP:
+        if (GetCapture() == splitter) {
+            RECT rc;
+            GetClientRect(parent, &rc);
+            int const available = rc.right - _MarkdownSplitterWidth(parent, rc.right);
+            POINT origin = { 0, 0 };
+            MapWindowPoints(splitter, parent, &origin, 1);
+            bool const changed = available > 0 && origin.x != _MarkdownSplitAt(parent, available);
+            if (changed) {
+                Globals.iMarkdownSplitRatio = clampi(MulDiv(origin.x, 1000, available), 1, 999);
+            }
+            ReleaseCapture();
+            if (changed) {
+                _RelayoutMarkdownPreview(parent);
+            }
+        }
+        return 0;
+
+    case WM_CANCELMODE:
+        if (GetCapture() == splitter) {
+            ReleaseCapture();
+        }
+        return 0;
+
+    case WM_CAPTURECHANGED:
+        if (Globals.hwndMarkdownSplitter == splitter) {
+            RECT rc;
+            GetClientRect(parent, &rc);
+            POINT origin = { 0, 0 };
+            MapWindowPoints(splitter, parent, &origin, 1);
+            int const available = rc.right - _MarkdownSplitterWidth(parent, rc.right);
+            SetWindowPos(splitter, NULL, _MarkdownSplitAt(parent, available), origin.y, 0, 0,
+                         SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+            InvalidateRect(splitter, NULL, FALSE);
+        }
+        return 0;
+    }
+    return DefSubclassProc(splitter, msg, wParam, lParam);
 }
 
 static void CALLBACK _RefreshMarkdownPreview(HWND hwnd, UINT message, UINT_PTR timer, DWORD time)
@@ -3332,8 +3450,7 @@ static void CALLBACK _RefreshMarkdownPreview(HWND hwnd, UINT message, UINT_PTR t
     const char* const text = (length > 0 && length <= MARKDOWN_PREVIEW_MAX_SOURCE)
         ? SciCall_GetRangePointer(0, length) : NULL;
     UINT const dpi = Scintilla_GetWindowDPI(preview);
-    int const width = MulDiv(max_i(1, rect.right - ScaleIntByDPI(22, dpi)), 1440, dpi);
-    MarkdownPreview_Render(preview, text, (size_t)length, Paths.CurrentFile, width, UseDarkMode(), Globals.bMarkdownResetScroll);
+    MarkdownPreview_Render(preview, text, (size_t)length, Paths.CurrentFile, dpi, UseDarkMode(), Globals.bMarkdownResetScroll);
     Globals.bMarkdownResetScroll = false;
 }
 
@@ -3977,6 +4094,7 @@ LRESULT MsgThemeChanged(HWND hwnd, WPARAM wParam,LPARAM lParam)
         SendMessage(hwnd, WM_SETREDRAW, TRUE, 0);
         RedrawWindow(hwnd, NULL, NULL, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
         if (Globals.hwndMarkdownPreview) {
+            InvalidateRect(Globals.hwndMarkdownSplitter, NULL, FALSE);
             _ScheduleMarkdownPreview(hwnd);
         }
     }
@@ -4040,8 +4158,9 @@ LRESULT MsgSize(HWND hwnd, WPARAM wParam, LPARAM lParam)
 
 
     HWND const preview = Globals.hwndMarkdownPreview;
-    int const previewWidth = preview ? cx / 2 : 0;
-    int const editWidth = cx - previewWidth;
+    int const divider = preview ? _MarkdownSplitterWidth(hwnd, cx) : 0;
+    int const available = cx - divider;
+    int const editWidth = preview ? _MarkdownSplitAt(hwnd, available) : cx;
     HDWP const hdwp = BeginDeferWindowPos(2);
 
     DeferWindowPos(hdwp,s_hwndEditFrame,NULL,x,y,editWidth,cy, SWP_NOZORDER | SWP_NOACTIVATE);
@@ -4053,9 +4172,11 @@ LRESULT MsgSize(HWND hwnd, WPARAM wParam, LPARAM lParam)
     EndDeferWindowPos(hdwp);
 
     if (preview) {
+        int const previewWidth = available - editWidth;
         RECT previous;
         GetWindowRect(preview, &previous);
-        SetWindowPos(preview, NULL, x + editWidth, y, previewWidth, cy, SWP_NOZORDER | SWP_NOACTIVATE);
+        SetWindowPos(preview, NULL, x + editWidth + divider, y, previewWidth, cy, SWP_NOZORDER | SWP_NOACTIVATE);
+        SetWindowPos(Globals.hwndMarkdownSplitter, HWND_TOP, x + editWidth, y, divider, cy, SWP_NOACTIVATE);
         if (previewWidth != previous.right - previous.left && previewWidth > 0 && cy > 0) {
             _ScheduleMarkdownPreview(hwnd);
         }
@@ -7452,10 +7573,19 @@ static bool _HandleViewAndSettingsCommands(HWND hwnd, UINT umsg, WPARAM wParam, 
         } else if (_IsMarkdownDocument()) {
             Globals.hwndMarkdownPreview = MarkdownPreview_Create(hwnd, IDC_MARKDOWNPREVIEW, &Globals.hMarkdownRichEdit);
             if (Globals.hwndMarkdownPreview) {
-                Globals.bMarkdownResetScroll = true;
-                _RelayoutMarkdownPreview(hwnd);
-                ShowWindow(Globals.hwndMarkdownPreview, SW_SHOWNA);
-                _RefreshMarkdownPreview(hwnd, WM_TIMER, ID_MARKDOWNPREVIEWTIMER, 0);
+                HWND const splitter = CreateWindowExW(WS_EX_NOINHERITLAYOUT, WC_STATIC, NULL,
+                    WS_CHILD | WS_CLIPSIBLINGS | SS_NOTIFY, 0, 0, 0, 0, hwnd,
+                    (HMENU)IDC_MARKDOWNSPLITTER, Globals.hInstance, NULL);
+                Globals.hwndMarkdownSplitter = splitter;
+                if (splitter && SetWindowSubclass(splitter, _MarkdownSplitterProc, 0, 0)) {
+                    Globals.bMarkdownResetScroll = true;
+                    _RelayoutMarkdownPreview(hwnd);
+                    ShowWindow(splitter, SW_SHOWNA);
+                    ShowWindow(Globals.hwndMarkdownPreview, SW_SHOWNA);
+                    _RefreshMarkdownPreview(hwnd, WM_TIMER, ID_MARKDOWNPREVIEWTIMER, 0);
+                } else {
+                    _DestroyMarkdownPreview(hwnd);
+                }
             }
         }
         break;

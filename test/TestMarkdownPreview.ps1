@@ -21,6 +21,10 @@ public static class MarkdownPreviewWindow {
     public static extern IntPtr GetDlgItem(IntPtr parent, int id);
     [DllImport("user32.dll")]
     public static extern bool GetWindowRect(IntPtr hwnd, out Rect rect);
+    [DllImport("user32.dll")]
+    private static extern bool GetClientRect(IntPtr hwnd, out Rect rect);
+    [DllImport("user32.dll")]
+    private static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
     [DllImport("user32.dll", EntryPoint="GetWindowLongW")]
     public static extern int GetStyle(IntPtr hwnd, int index = -16);
     [DllImport("user32.dll", EntryPoint="SendMessageTimeoutW", SetLastError=true)]
@@ -30,9 +34,29 @@ public static class MarkdownPreviewWindow {
     private static extern IntPtr ReadRaw(IntPtr hwnd, uint message, IntPtr wparam, StringBuilder lparam,
                                          uint flags, uint timeout, out IntPtr result);
 
-    public static void Send(IntPtr hwnd, uint message, int wparam = 0) {
-        if (SendRaw(hwnd, message, (IntPtr)wparam, IntPtr.Zero, 2, 5000, out _) == IntPtr.Zero)
+    [DllImport("user32.dll", EntryPoint="SendMessageTimeoutW", SetLastError=true)]
+    private static extern IntPtr ReadRect(IntPtr hwnd, uint message, IntPtr wparam, out Rect rect,
+                                         uint flags, uint timeout, out IntPtr result);
+
+    public static void Send(IntPtr hwnd, uint message, int wparam = 0, int lparam = 0) {
+        if (SendRaw(hwnd, message, (IntPtr)wparam, (IntPtr)lparam, 2, 5000, out _) == IntPtr.Zero)
             throw new Win32Exception(Marshal.GetLastWin32Error());
+    }
+
+    public static Rect ClientRectInPixels(IntPtr hwnd) {
+        var previous = SetThreadDpiAwarenessContext((IntPtr)(-4)); // PER_MONITOR_AWARE_V2
+        try {
+            GetClientRect(hwnd, out var rect);
+            return rect;
+        } finally {
+            if (previous != IntPtr.Zero) SetThreadDpiAwarenessContext(previous);
+        }
+    }
+
+    public static Rect FormattingRect(IntPtr hwnd) {
+        if (ReadRect(hwnd, 0x00B2, IntPtr.Zero, out var rect, 2, 5000, out _) == IntPtr.Zero)
+            throw new Win32Exception(Marshal.GetLastWin32Error());
+        return rect;
     }
 
     public static string Text(IntPtr hwnd) {
@@ -87,6 +111,7 @@ function Get-PrivateMiB($Process) {
 $file = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot 'test_files\markdown\Preview.md')).Path
 $edit = 0xFB03
 $preview = 0xFB09
+$splitter = 0xFB0A
 $command = 0x0111
 $togglePreview = 41066
 $process = $null
@@ -101,7 +126,8 @@ try {
         # Isolate the preview from the editor's DirectWrite resize allocations.
         [MarkdownPreviewWindow]::Send($source, 2630, 0) # SCI_SETTECHNOLOGY, SC_TECHNOLOGY_DEFAULT
     }
-    Assert-That ([MarkdownPreviewWindow]::GetDlgItem($main, $preview) -eq [IntPtr]::Zero) 'No preview control is created at startup'
+    Assert-That (([MarkdownPreviewWindow]::GetDlgItem($main, $preview) -eq [IntPtr]::Zero) -and
+                 ([MarkdownPreviewWindow]::GetDlgItem($main, $splitter) -eq [IntPtr]::Zero)) 'No preview or splitter is created at startup'
     $whole = [MarkdownPreviewWindow+Rect]::new()
     [void][MarkdownPreviewWindow]::GetWindowRect($source, [ref]$whole)
     $offMiB = Get-PrivateMiB $process
@@ -110,6 +136,11 @@ try {
     $pane = [MarkdownPreviewWindow]::GetDlgItem($main, $preview)
     Assert-That ($pane -ne [IntPtr]::Zero) 'The View command creates a side pane'
     Assert-That (0 -ne ([MarkdownPreviewWindow]::GetStyle($pane) -band 0x0800)) 'The pane is read-only'
+    Assert-That (0 -eq ([MarkdownPreviewWindow]::GetStyle($pane, -20) -band 0x0200)) 'The pane has no bright Win32 client edge'
+    $content = [MarkdownPreviewWindow]::FormattingRect($pane)
+    $client = [MarkdownPreviewWindow]::ClientRectInPixels($pane)
+    Assert-That ($content.Left -ge 8 -and ($client.Right - $content.Right) -ge 8 -and $content.Top -ge 6) `
+        "The preview has horizontal and top padding (content: $($content.Left), $($content.Top), $($content.Right); client width: $($client.Right))"
     $split = [MarkdownPreviewWindow+Rect]::new()
     [void][MarkdownPreviewWindow]::GetWindowRect($source, [ref]$split)
     Assert-That (($split.Right - $split.Left) -lt ($whole.Right - $whole.Left)) 'The pane shares the editor area'
@@ -122,11 +153,35 @@ try {
     Assert-That ($text -match 'Images\r?\n[ \uFFFC]\r?\n\[Image: External image\]') 'A relative local PNG renders as an embedded picture'
     Assert-That ($text.Contains('[Image: External image]') -and $text.Contains('[Image: Missing image]')) 'External and missing images render as placeholders'
     $onMiB = Get-PrivateMiB $process
+    $divider = [MarkdownPreviewWindow]::GetDlgItem($main, $splitter)
+    Assert-That ($divider -ne [IntPtr]::Zero) 'The split view has a draggable divider'
+    $dragStart = [MarkdownPreviewWindow+Rect]::new()
+    [void][MarkdownPreviewWindow]::GetWindowRect($divider, [ref]$dragStart)
+    [MarkdownPreviewWindow]::Send($divider, 0x0201, 1, 0x000A0003) # WM_LBUTTONDOWN
+    [MarkdownPreviewWindow]::Send($divider, 0x0200, 1, 0x000A004B) # WM_MOUSEMOVE to the right
+    $dragged = [MarkdownPreviewWindow+Rect]::new()
+    [void][MarkdownPreviewWindow]::GetWindowRect($divider, [ref]$dragged)
+    $beforeRelease = [MarkdownPreviewWindow+Rect]::new()
+    [void][MarkdownPreviewWindow]::GetWindowRect($source, [ref]$beforeRelease)
+    Assert-That ($dragged.Left -gt $dragStart.Left -and $beforeRelease.Right -eq $split.Right) 'Dragging moves only the divider, without reflowing the panes'
+    [MarkdownPreviewWindow]::Send($divider, 0x0202, 0, 0x000A0003) # WM_LBUTTONUP
+    $expanded = [MarkdownPreviewWindow+Rect]::new()
+    [void][MarkdownPreviewWindow]::GetWindowRect($source, [ref]$expanded)
+    Assert-That ($expanded.Right -gt $split.Right) 'Releasing the divider applies the new ratio'
+    [MarkdownPreviewWindow]::Send($divider, 0x0201, 1, 0x000A0003)
+    [MarkdownPreviewWindow]::Send($divider, 0x0200, 1, 0x000AFFC0) # move left
+    [MarkdownPreviewWindow]::Send($divider, 0x001F) # WM_CANCELMODE
+    $cancelled = [MarkdownPreviewWindow+Rect]::new()
+    [void][MarkdownPreviewWindow]::GetWindowRect($divider, [ref]$cancelled)
+    Assert-That ([math]::Abs($cancelled.Left - $dragged.Left) -le 2) 'Cancelling a drag restores the last committed position'
     [MarkdownPreviewWindow]::Send($main, $command, $togglePreview)
     $firstCloseMiB = Get-PrivateMiB $process
     [MarkdownPreviewWindow]::Send($main, $command, $togglePreview)
     $pane = [MarkdownPreviewWindow]::GetDlgItem($main, $preview)
     Assert-That ($pane -ne [IntPtr]::Zero) 'The preview can be reopened'
+    $reopened = [MarkdownPreviewWindow+Rect]::new()
+    [void][MarkdownPreviewWindow]::GetWindowRect($source, [ref]$reopened)
+    Assert-That ($reopened.Right -eq $expanded.Right) 'Reopening remembers the ratio in the current window'
 
     [MarkdownPreviewWindow]::Send($source, 2025, 2) # SCI_GOTOPOS: after '# '
     [MarkdownPreviewWindow]::Send($source, 0x0102, [int][char]'Z') # WM_CHAR
@@ -136,7 +191,8 @@ try {
     Assert-That $true 'Unsaved edits and undo refresh the pane'
 
     [MarkdownPreviewWindow]::Send($main, $command, $togglePreview)
-    Assert-That ([MarkdownPreviewWindow]::GetDlgItem($main, $preview) -eq [IntPtr]::Zero) 'Closing the pane destroys its control'
+    Assert-That (([MarkdownPreviewWindow]::GetDlgItem($main, $preview) -eq [IntPtr]::Zero) -and
+                 ([MarkdownPreviewWindow]::GetDlgItem($main, $splitter) -eq [IntPtr]::Zero)) 'Closing the pane destroys both controls'
     $restored = [MarkdownPreviewWindow+Rect]::new()
     [void][MarkdownPreviewWindow]::GetWindowRect($source, [ref]$restored)
     Assert-That (($restored.Right - $restored.Left) -eq ($whole.Right - $whole.Left)) 'Closing restores full editor width'

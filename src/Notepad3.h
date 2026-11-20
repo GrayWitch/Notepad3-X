@@ -55,6 +55,7 @@ np3params, *LPnp3params;
 #define IDC_MARGIN       (0xFB07)
 #define IDC_NCAREA       (0xFB08)
 #define IDC_MARKDOWNPREVIEW (0xFB09)
+#define IDC_MARKDOWNSPLITTER (0xFB0A)
 
 
 

@@ -532,7 +532,9 @@ typedef struct GLOBALS_T {
     HANDLE    hndlProcessHeap;
     HWND      hwndEdit;
     HWND      hwndMarkdownPreview;
+    HWND      hwndMarkdownSplitter;
     HMODULE   hMarkdownRichEdit;
+    int       iMarkdownSplitRatio;     // Editor share per thousand; zero means 50/50
     bool      bMarkdownResetScroll;
     HANDLE    hwndToolbar;
     HANDLE    hwndRebar;

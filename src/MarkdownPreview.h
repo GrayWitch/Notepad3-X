@@ -11,7 +11,7 @@ extern "C" {
 
 HWND MarkdownPreview_Create(HWND parent, int id, HMODULE* module);
 void MarkdownPreview_Render(HWND preview, const char* utf8, size_t length, HPATHL source,
-                            int widthTwips, bool dark, bool resetScroll);
+                            UINT dpi, bool dark, bool resetScroll);
 
 #ifdef __cplusplus
 }

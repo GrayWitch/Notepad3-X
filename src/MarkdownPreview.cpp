@@ -237,14 +237,14 @@ struct Renderer {
         }
     }
 
-    void StartParagraph(const char* style = "\\sa110\\sl260\\slmult1")
+    void StartParagraph(const char* style = "\\sa105\\sl235\\slmult1")
     {
         if (cell) {
             return;
         }
         EndParagraph();
         paragraph = true;
-        rtf += "{\\pard\\plain\\f0\\fs22\\cf";
+        rtf += "{\\pard\\plain\\f0\\fs20\\cf";
         rtf += quotes ? '3' : '1';
         rtf += style;
         int const indent = std::min(width / 3, static_cast<int>(lists.size()) * 300 + quotes * 220);
@@ -273,7 +273,11 @@ struct Renderer {
     void EnsureParagraph()
     {
         if (!paragraph && !cell) {
-            StartParagraph(lists.empty() ? "\\sa110\\sl260\\slmult1" : "\\sa40");
+            if (lists.empty()) {
+                StartParagraph();
+            } else {
+                StartParagraph("\\sa40");
+            }
         }
     }
 
@@ -343,7 +347,7 @@ struct Renderer {
         }
         case MD_BLOCK_P: StartParagraph(); break;
         case MD_BLOCK_H: {
-            constexpr int sizes[] = {40, 33, 28, 25, 23, 22};
+            constexpr int sizes[] = {32, 27, 24, 22, 21, 20};
             auto const level = static_cast<const MD_BLOCK_H_DETAIL*>(detail)->level;
             StartParagraph("\\sb180\\sa120\\keepn");
             rtf += "\\b\\cf2\\fs" + std::to_string(sizes[level - 1]) + ' ';
@@ -355,7 +359,7 @@ struct Renderer {
             break;
         case MD_BLOCK_CODE:
             StartParagraph("\\sb60\\sa140\\shading10000\\cbpat4");
-            rtf += "\\f1\\fs20 ";
+            rtf += "\\f1\\fs18 ";
             codeBlock = true;
             break;
         case MD_BLOCK_TABLE:
@@ -375,7 +379,7 @@ struct Renderer {
             auto const align = static_cast<const MD_BLOCK_TD_DETAIL*>(detail)->align;
             if (columns <= MaxTableColumns) {
                 cell = true;
-                rtf += "\\pard\\intbl\\plain\\f0\\fs20\\cf1";
+                rtf += "\\pard\\intbl\\plain\\f0\\fs19\\cf1";
                 rtf += align == MD_ALIGN_RIGHT ? "\\qr" : (align == MD_ALIGN_CENTER ? "\\qc" : "\\ql");
                 rtf += type == MD_BLOCK_TH ? "\\b\\cf2 " : " ";
             } else {
@@ -513,7 +517,7 @@ HWND MarkdownPreview_Create(HWND parent, int id, HMODULE* module)
             return nullptr;
         }
     }
-    HWND const preview = CreateWindowExW(WS_EX_CLIENTEDGE | WS_EX_NOINHERITLAYOUT, MSFTEDIT_CLASS, L"",
+    HWND const preview = CreateWindowExW(WS_EX_NOINHERITLAYOUT, MSFTEDIT_CLASS, L"",
         WS_CHILD | WS_CLIPSIBLINGS | WS_VSCROLL | ES_MULTILINE | ES_READONLY | ES_NOHIDESEL,
         0, 0, 0, 0, parent, reinterpret_cast<HMENU>(static_cast<INT_PTR>(id)), GetModuleHandleW(nullptr), nullptr);
     if (preview) {
@@ -522,7 +526,7 @@ HWND MarkdownPreview_Create(HWND parent, int id, HMODULE* module)
     return preview;
 }
 
-void MarkdownPreview_Render(HWND preview, const char* utf8, size_t length, HPATHL source, int widthTwips,
+void MarkdownPreview_Render(HWND preview, const char* utf8, size_t length, HPATHL source, UINT dpi,
                             bool dark, bool resetScroll)
 {
     // The Scintilla range pointer is borrowed; copy before sending any window messages.
@@ -541,6 +545,13 @@ void MarkdownPreview_Render(HWND preview, const char* utf8, size_t length, HPATH
         SendMessage(preview, EM_GETSCROLLPOS, 0, reinterpret_cast<LPARAM>(&scroll));
     }
     SendMessage(preview, WM_SETREDRAW, FALSE, 0);
+    RECT content{};
+    GetClientRect(preview, &content);
+    int const horizontal = std::min<int>(MulDiv(16, dpi, 96), content.right / 4);
+    int const vertical = std::min<int>(MulDiv(12, dpi, 96), content.bottom / 4);
+    InflateRect(&content, -horizontal, -vertical);
+    SendMessage(preview, EM_SETRECTNP, 0, reinterpret_cast<LPARAM>(&content));
+    int const widthTwips = MulDiv(content.right - content.left, 1440, dpi);
     SendMessage(preview, EM_SETBKGNDCOLOR, 0, dark ? RGB(32, 35, 40) : RGB(255, 255, 255));
     // RichEdit requires writable mode for EM_STREAMIN; no input is dispatched here.
     SendMessage(preview, EM_SETREADONLY, FALSE, 0);
