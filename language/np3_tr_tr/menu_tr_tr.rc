@@ -352,6 +352,7 @@ BEGIN
     END
     POPUP "&Görünüm"
     BEGIN
+        MENUITEM "Markdown Preview", IDM_VIEW_MARKDOWN_PREVIEW
         MENUITEM "&Sözcük kaydırmalar görüntülensin\tCtrl+W",         IDM_VIEW_WORDWRAP
         MENUITEM "&Uzun satır işareti görüntülensin\tCtrl+Alt+L",     IDM_VIEW_LONGLINEMARKER
         MENUITEM "Sekme &konumları görüntülensin\tCtrl+Shift+G",      IDM_VIEW_SHOWINDENTGUIDES

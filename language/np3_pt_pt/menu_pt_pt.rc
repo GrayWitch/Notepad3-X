@@ -352,6 +352,7 @@ BEGIN
     END
     POPUP "&Ver"
     BEGIN
+        MENUITEM "Markdown Preview", IDM_VIEW_MARKDOWN_PREVIEW
         MENUITEM "Moldar texto\tCtrl+W",                        IDM_VIEW_WORDWRAP
         MENUITEM "Marcador de linha &longa\tCtrl+Alt+L",        IDM_VIEW_LONGLINEMARKER
         MENUITEM "&Guias de indentação\tCtrl+Shift+G",          IDM_VIEW_SHOWINDENTGUIDES

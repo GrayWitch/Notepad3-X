@@ -63,6 +63,15 @@
     <ClCompile Include="EditRTF.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="MarkdownPreview.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="md4c\md4c.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="md4c\entity.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="Helpers.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -468,6 +477,15 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="EditRTF.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MarkdownPreview.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="md4c\md4c.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="md4c\entity.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Helpers.h">

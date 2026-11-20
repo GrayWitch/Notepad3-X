@@ -531,6 +531,9 @@ typedef struct GLOBALS_T {
     HWND      hwndMain;
     HANDLE    hndlProcessHeap;
     HWND      hwndEdit;
+    HWND      hwndMarkdownPreview;
+    HMODULE   hMarkdownRichEdit;
+    bool      bMarkdownResetScroll;
     HANDLE    hwndToolbar;
     HANDLE    hwndRebar;
     HWND      hwndStatus;

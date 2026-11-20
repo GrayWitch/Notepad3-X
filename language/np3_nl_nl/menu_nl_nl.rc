@@ -352,6 +352,7 @@ BEGIN
     END
     POPUP "Beel&d"
     BEGIN
+        MENUITEM "Markdown Preview", IDM_VIEW_MARKDOWN_PREVIEW
         MENUITEM "Automatische regel&terugloop\tCtrl+W",            IDM_VIEW_WORDWRAP
         MENUITEM "&Lange regelmarkering\tCtrl+Alt+L",               IDM_VIEW_LONGLINEMARKER
         MENUITEM "Inspringing markeren\tCtrl+Shift+G",              IDM_VIEW_SHOWINDENTGUIDES

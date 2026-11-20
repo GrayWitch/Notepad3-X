@@ -352,6 +352,7 @@ BEGIN
     END
     POPUP "&Näkymä"
     BEGIN
+        MENUITEM "Markdown Preview", IDM_VIEW_MARKDOWN_PREVIEW
         MENUITEM "&Rivitys\tCtrl+W",                   IDM_VIEW_WORDWRAP
         MENUITEM "&Pitkän rivin merkintä\tCtrl+Alt+L", IDM_VIEW_LONGLINEMARKER
         MENUITEM "Sisennys&ohjaimet\tCtrl+Shift+G",    IDM_VIEW_SHOWINDENTGUIDES

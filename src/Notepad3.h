@@ -54,6 +54,7 @@ np3params, *LPnp3params;
 #define IDC_REUSELOCK    (0xFB06)
 #define IDC_MARGIN       (0xFB07)
 #define IDC_NCAREA       (0xFB08)
+#define IDC_MARKDOWNPREVIEW (0xFB09)
 
 
 
@@ -74,6 +75,7 @@ np3params, *LPnp3params;
 #define ID_DEFERMINIMIZETIMER (0xA006)      // Deferred minimize on /B + /I startup
 #define ID_TINYEXPRCOPYTIMER  (0xA007)      // TinyExpr status-bar single-click copy debounce
 #define ID_FGLOCKRELEASETIMER (0xA008)      // Release LockSetForegroundWindow after background URL launch
+#define ID_MARKDOWNPREVIEWTIMER (0xA009)    // Debounced Markdown preview refresh
 
 
 //==== Reuse Window Lock Timeout ==============================================

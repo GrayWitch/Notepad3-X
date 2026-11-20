@@ -352,6 +352,7 @@ BEGIN
     END
     POPUP "&Вид"
     BEGIN
+        MENUITEM "Markdown Preview", IDM_VIEW_MARKDOWN_PREVIEW
         MENUITEM "&Перенос строк\tCtrl+W",                          IDM_VIEW_WORDWRAP
         MENUITEM "&Маркер длинных строк\tCtrl+Alt+L",               IDM_VIEW_LONGLINEMARKER
         MENUITEM "Направ&ляющие отступов\tCtrl+Shift+G",            IDM_VIEW_SHOWINDENTGUIDES

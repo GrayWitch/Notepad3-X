@@ -352,6 +352,7 @@ BEGIN
     END
     POPUP "&Tampilan"
     BEGIN
+        MENUITEM "Markdown Preview", IDM_VIEW_MARKDOWN_PREVIEW
         MENUITEM "Bungkus Kata\tCtrl+W",                                IDM_VIEW_WORDWRAP
         MENUITEM "Penanda Garis Panjang\tCtrl+Alt+L",                   IDM_VIEW_LONGLINEMARKER
         MENUITEM "Garis Bantu Indentasi\tCtrl+Shift+G",                 IDM_VIEW_SHOWINDENTGUIDES

@@ -352,6 +352,7 @@ BEGIN
     END
     POPUP "보기(&V)"
     BEGIN
+        MENUITEM "Markdown Preview", IDM_VIEW_MARKDOWN_PREVIEW
         MENUITEM "줄 바꿈(&R)\tCtrl+W",                   IDM_VIEW_WORDWRAP
         MENUITEM "긴 줄 마커(&L)\tCtrl+Alt+L",        IDM_VIEW_LONGLINEMARKER
         MENUITEM "들여쓰기 안내선(&A)\tCtrl+Shift+G",    IDM_VIEW_SHOWINDENTGUIDES

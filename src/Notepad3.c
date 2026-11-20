@@ -35,6 +35,7 @@
 #include "PathLib.h"
 #include "Edit.h"
 #include "EditRTF.h"
+#include "MarkdownPreview.h"
 #include "Styles.h"
 #include "Dialogs.h"
 #include "crypto/crypto.h"
@@ -2596,6 +2597,16 @@ LRESULT CALLBACK MainWndProc(HWND hwnd, UINT umsg, WPARAM wParam, LPARAM lParam)
         break;
 
     case WM_DESTROY:
+        if (Globals.hwndMarkdownPreview) {
+            KillTimer(hwnd, ID_MARKDOWNPREVIEWTIMER);
+            DestroyWindow(Globals.hwndMarkdownPreview);
+            Globals.hwndMarkdownPreview = NULL;
+        }
+        if (Globals.hMarkdownRichEdit) {
+            FreeLibrary(Globals.hMarkdownRichEdit);
+            Globals.hMarkdownRichEdit = NULL;
+        }
+        // [[FallThrough]]
     case WM_ENDSESSION:
         return MsgEndSession(hwnd, umsg, wParam, lParam);
 
@@ -3275,8 +3286,68 @@ static void _InitEditWndFrame()
 }
 
 
+static bool _IsMarkdownDocument(void)
+{
+    return Style_GetCurrentLexerPtr() == &lexMARKDOWN;
+}
+
+static void _RelayoutMarkdownPreview(HWND hwnd)
+{
+    RECT rect;
+    GetClientRect(hwnd, &rect);
+    MsgSize(hwnd, SIZE_RESTORED, MAKELPARAM(rect.right, rect.bottom));
+}
+
+static void _CloseMarkdownPreview(HWND hwnd)
+{
+    HWND const preview = Globals.hwndMarkdownPreview;
+    KillTimer(hwnd, ID_MARKDOWNPREVIEWTIMER);
+    Globals.hwndMarkdownPreview = NULL;
+    if (GetFocus() == preview) {
+        SetFocus(Globals.hwndEdit);
+    }
+    DestroyWindow(preview);
+    _RelayoutMarkdownPreview(hwnd);
+}
+
+static void CALLBACK _RefreshMarkdownPreview(HWND hwnd, UINT message, UINT_PTR timer, DWORD time)
+{
+    UNREFERENCED_PARAMETER(message);
+    UNREFERENCED_PARAMETER(time);
+    KillTimer(hwnd, timer);
+    HWND const preview = Globals.hwndMarkdownPreview;
+    if (!preview) {
+        return;
+    }
+    if (!_IsMarkdownDocument()) {
+        _CloseMarkdownPreview(hwnd);
+        return;
+    }
+    RECT rect;
+    GetClientRect(preview, &rect);
+    if (rect.right <= 0 || rect.bottom <= 0) {
+        return;
+    }
+    DocPos const length = SciCall_GetTextLength();
+    const char* const text = (length > 0 && length <= MARKDOWN_PREVIEW_MAX_SOURCE)
+        ? SciCall_GetRangePointer(0, length) : NULL;
+    UINT const dpi = Scintilla_GetWindowDPI(preview);
+    int const width = MulDiv(max_i(1, rect.right - ScaleIntByDPI(22, dpi)), 1440, dpi);
+    MarkdownPreview_Render(preview, text, (size_t)length, Paths.CurrentFile, width, UseDarkMode(), Globals.bMarkdownResetScroll);
+    Globals.bMarkdownResetScroll = false;
+}
+
+static void _ScheduleMarkdownPreview(HWND hwnd)
+{
+    SetTimer(hwnd, ID_MARKDOWNPREVIEWTIMER, 300, _RefreshMarkdownPreview);
+}
+
 static void _SetEnumWindowsItems(HWND hwnd)
 {
+    if (Globals.hwndMarkdownPreview) {
+        Globals.bMarkdownResetScroll = true;
+        _ScheduleMarkdownPreview(hwnd);
+    }
     SetDlgItemText(hwnd, IDC_FILENAME, Path_Get(Paths.CurrentFile));
     SetDlgItemInt(hwnd, IDC_REUSELOCK, (UINT)GetTicks_ms(), false);
 }
@@ -3905,6 +3976,9 @@ LRESULT MsgThemeChanged(HWND hwnd, WPARAM wParam,LPARAM lParam)
         // re-enable drawing and force a single
         SendMessage(hwnd, WM_SETREDRAW, TRUE, 0);
         RedrawWindow(hwnd, NULL, NULL, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
+        if (Globals.hwndMarkdownPreview) {
+            _ScheduleMarkdownPreview(hwnd);
+        }
     }
 
     UpdateWindowEx(hwnd);
@@ -3965,15 +4039,27 @@ LRESULT MsgSize(HWND hwnd, WPARAM wParam, LPARAM lParam)
     }
 
 
+    HWND const preview = Globals.hwndMarkdownPreview;
+    int const previewWidth = preview ? cx / 2 : 0;
+    int const editWidth = cx - previewWidth;
     HDWP const hdwp = BeginDeferWindowPos(2);
 
-    DeferWindowPos(hdwp,s_hwndEditFrame,NULL,x,y,cx,cy, SWP_NOZORDER | SWP_NOACTIVATE);
+    DeferWindowPos(hdwp,s_hwndEditFrame,NULL,x,y,editWidth,cy, SWP_NOZORDER | SWP_NOACTIVATE);
 
     DeferWindowPos(hdwp, g_hwndEditWindow, s_hwndEditFrame,
-                   x+s_cxEditFrame,y+s_cyEditFrame, cx-2*s_cxEditFrame,cy-2*s_cyEditFrame,
+                   x+s_cxEditFrame,y+s_cyEditFrame, editWidth-2*s_cxEditFrame,cy-2*s_cyEditFrame,
                    SWP_NOZORDER | SWP_NOACTIVATE);
 
     EndDeferWindowPos(hdwp);
+
+    if (preview) {
+        RECT previous;
+        GetWindowRect(preview, &previous);
+        SetWindowPos(preview, NULL, x + editWidth, y, previewWidth, cy, SWP_NOZORDER | SWP_NOACTIVATE);
+        if (previewWidth != previous.right - previous.left && previewWidth > 0 && cy > 0) {
+            _ScheduleMarkdownPreview(hwnd);
+        }
+    }
 
     s_WinCurrentWidth = cx;
 
@@ -5271,6 +5357,8 @@ LRESULT MsgInitMenu(HWND hwnd, WPARAM wParam, LPARAM lParam)
 
     CheckCmd(hmenu, IDM_VIEW_TOGGLE_VIEW, FocusedView.HideNonMatchedLines);
     EnableCmd(hmenu, IDM_VIEW_TOGGLE_VIEW, IsFocusedViewAllowed());
+    CheckCmd(hmenu, IDM_VIEW_MARKDOWN_PREVIEW, Globals.hwndMarkdownPreview != NULL);
+    EnableCmd(hmenu, IDM_VIEW_MARKDOWN_PREVIEW, Globals.hwndMarkdownPreview || _IsMarkdownDocument());
 
     i = IDM_VIEW_FV_FOLD;
     int const fvm_mode = Settings.FocusViewMarkerMode;
@@ -7356,6 +7444,20 @@ static bool _HandleViewAndSettingsCommands(HWND hwnd, UINT umsg, WPARAM wParam, 
     case IDM_VIEW_MARKOCCUR_VISIBLE:
         Settings.MarkOccurrencesMatchVisible = !Settings.MarkOccurrencesMatchVisible;
         MarkAllOccurrences(_MQ_FAST, true);
+        break;
+
+    case IDM_VIEW_MARKDOWN_PREVIEW:
+        if (Globals.hwndMarkdownPreview) {
+            _CloseMarkdownPreview(hwnd);
+        } else if (_IsMarkdownDocument()) {
+            Globals.hwndMarkdownPreview = MarkdownPreview_Create(hwnd, IDC_MARKDOWNPREVIEW, &Globals.hMarkdownRichEdit);
+            if (Globals.hwndMarkdownPreview) {
+                Globals.bMarkdownResetScroll = true;
+                _RelayoutMarkdownPreview(hwnd);
+                ShowWindow(Globals.hwndMarkdownPreview, SW_SHOWNA);
+                _RefreshMarkdownPreview(hwnd, WM_TIMER, ID_MARKDOWNPREVIEWTIMER, 0);
+            }
+        }
         break;
 
     case IDM_VIEW_TOGGLE_VIEW:
@@ -10392,6 +10494,11 @@ LRESULT MsgNotify(HWND hwnd, WPARAM wParam, LPARAM lParam)
     case IDC_EDIT: {
         bool bModified = false;
         result = NotifyDocChanged() ? _MsgNotifyFromEdit(hwnd, scn) : _MsgNotifyLean(scn, &bModified);
+        if (Globals.hwndMarkdownPreview &&
+            ((pnmh->code == SCN_UPDATEUI && (scn->updated & SC_UPDATE_CONTENT)) ||
+             (pnmh->code == SCN_MODIFIED && (scn->modificationType & (SC_MOD_INSERTTEXT | SC_MOD_DELETETEXT))))) {
+            _ScheduleMarkdownPreview(hwnd);
+        }
     } break;
 
     // ------------------------------------------------------------------------

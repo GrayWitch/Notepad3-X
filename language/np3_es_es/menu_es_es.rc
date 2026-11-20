@@ -352,6 +352,7 @@ BEGIN
     END
     POPUP "&Vista"
     BEGIN
+        MENUITEM "Markdown Preview", IDM_VIEW_MARKDOWN_PREVIEW
         MENUITEM "&Ajuste automático de línea\tCtrl+W",                 IDM_VIEW_WORDWRAP
         MENUITEM "&Marcador de línea larga\tCtrl+Alt+L",                IDM_VIEW_LONGLINEMARKER
         MENUITEM "&Guías de Sangría\tCtrl+Shift+G",                     IDM_VIEW_SHOWINDENTGUIDES

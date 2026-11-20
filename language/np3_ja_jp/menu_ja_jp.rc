@@ -352,6 +352,7 @@ BEGIN
     END
     POPUP "表示(&V)"
     BEGIN
+        MENUITEM "Markdown Preview", IDM_VIEW_MARKDOWN_PREVIEW
         MENUITEM "右端で折り返す(&R)\tCtrl+W",                 IDM_VIEW_WORDWRAP
         MENUITEM "行の長さガイド(&L)\tCtrl+Alt+L",            IDM_VIEW_LONGLINEMARKER
         MENUITEM "インデントのガイド(&A)\tCtrl+Shift+G",          IDM_VIEW_SHOWINDENTGUIDES

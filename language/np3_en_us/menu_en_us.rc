@@ -355,6 +355,7 @@ BEGIN
     END
     POPUP "&View"
     BEGIN
+        MENUITEM "Markdown Preview", IDM_VIEW_MARKDOWN_PREVIEW
         MENUITEM "&Word Wrap\tCtrl+W",                   IDM_VIEW_WORDWRAP
         MENUITEM "&Long Line Marker\tCtrl+Alt+L",        IDM_VIEW_LONGLINEMARKER
         MENUITEM "Indentation &Guides\tCtrl+Shift+G",    IDM_VIEW_SHOWINDENTGUIDES

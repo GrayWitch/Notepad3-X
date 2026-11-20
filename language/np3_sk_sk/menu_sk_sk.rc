@@ -352,6 +352,7 @@ BEGIN
     END
     POPUP "&Zobraziť"
     BEGIN
+        MENUITEM "Markdown Preview", IDM_VIEW_MARKDOWN_PREVIEW
         MENUITEM "&Zalomenie textu\tCtrl+W",                    IDM_VIEW_WORDWRAP
         MENUITEM "&Ohraničenie dĺžky riadku\tCtrl+Alt+L",       IDM_VIEW_LONGLINEMARKER
         MENUITEM "Vodítka odsadenia\tCtrl+Shift+G",             IDM_VIEW_SHOWINDENTGUIDES
